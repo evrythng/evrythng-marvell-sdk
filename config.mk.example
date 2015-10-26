@@ -1,0 +1,7 @@
+
+# path to the original marvell sdk tarball
+WMSDK_BUNDLE_PATH=/full/path/to/wmsdk/bundle
+
+# 2 options are available: mc200_8801 or mw300
+#BOARD=mc200_8801
+BOARD=mw300
