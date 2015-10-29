@@ -17,7 +17,6 @@ lib/core/README.md
 
 See [our release page](https://github.com/evrythng/evrythng-marvell-sdk/releases).
 
-`git clone git@github.com:evrythng/evrythng-marvell-sdk.git --recursive`
 
 ## Clone
 
