@@ -13,6 +13,12 @@ You can find a programming guide in the following file:
 lib/core/README.md
 ```
 
+## Get the latest release
+
+See [our release page](https://github.com/evrythng/evrythng-marvell-sdk/releases).
+
+`git clone git@github.com:evrythng/evrythng-marvell-sdk.git --recursive`
+
 ## Clone
 
 Ensure you use the `--recursive` option as this project depends on the [EVRYTHNG C library](https://github.com/evrythng/evrythng-c-library):
