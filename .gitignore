@@ -3,6 +3,8 @@
 *.ko
 *.obj
 *.elf
+*.d
+*.dep
 
 # Precompiled Headers
 *.gch
@@ -28,5 +30,14 @@
 *.x86_64
 *.hex
 
-# Debug files
-*.dSYM/
+tags
+cscope.*
+
+apps/demo/src/board.c
+apps/tests/src/board.c
+apps/demo/bin/
+apps/tests/bin/
+
+wmsdk_bundle-*
+
+/config.mk
