@@ -1,3 +1,4 @@
 [submodule "lib/core"]
 	path = lib/core
-	url = https://github.com/evrythng/evrythng-c-library.git
+	url = git@t@github.com:evrythng/evrythng-c-library.git
+    branch = master

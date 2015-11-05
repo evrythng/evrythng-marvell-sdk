@@ -67,7 +67,7 @@ void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl)
 #if defined(CONFIG_OS_FREERTOS) && !defined(FREERTOS_SIMULATOR)
 #define PRINT_START_MEM_STATS \
     const heapAllocatorInfo_t* s1 = getheapAllocInfo();\
-    wmprintf(">>>>>> %d/%d\n\r", s1->freeSize, s1->heapSize);
+    wmprintf(">>>>>> %d/%d: %s\n\r", s1->freeSize, s1->heapSize, __func__);
 #else
 #define PRINT_START_MEM_STATS
 #endif
@@ -75,7 +75,7 @@ void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl)
 #if defined(CONFIG_OS_FREERTOS) && !defined(FREERTOS_SIMULATOR)
 #define PRINT_END_MEM_STATS \
     const heapAllocatorInfo_t* s2 = getheapAllocInfo();\
-    wmprintf("<<<<<< %d/%d\n\r", s2->freeSize, s2->heapSize);
+    wmprintf("<<<<<< %d/%d: %s\n\r", s2->freeSize, s2->heapSize, __func__);
 #else
 #define PRINT_END_MEM_STATS 
 #endif

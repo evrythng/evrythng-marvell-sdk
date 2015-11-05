@@ -42,6 +42,9 @@ tests_ramload: tests
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
 	sudo ./ramload.sh $(PROJECT_ROOT)/apps/tests/bin/evrythng_tests.axf \
 
+tests_flashprog: tests
+	cd $(WMSDK_PATH)/tools/OpenOCD; \
+	sudo ./flashprog.sh --$(BOARD_FW_PARTITION) $(PROJECT_ROOT)/apps/tests/bin/evrythng_tests.bin \
 
 clean: demo_clean tests_clean libevrythng_clean wmsdk_clean 
 

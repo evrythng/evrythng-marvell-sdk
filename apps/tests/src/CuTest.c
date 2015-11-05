@@ -139,23 +139,11 @@ void CuTestRun(CuTest* tc)
 static void CuFailInternal(CuTest* tc, const char* file, int line, CuString* string)
 {
 	tc->failed = 1;
-    CuStringAppendFormat(&tc->message,  "%s:%d: ", file, line);
-    CuStringAppend(&tc->message, string->buffer);
-    platform_free(string->buffer);
 }
 
 void CuFail_Line(CuTest* tc, const char* file, int line, const char* message2, const char* message)
 {
-	CuString string;
-
-	CuStringInit(&string);
-	if (message2 != NULL) 
-	{
-		CuStringAppend(&string, message2);
-		CuStringAppend(&string, ": ");
-	}
-	CuStringAppend(&string, message);
-	CuFailInternal(tc, file, line, &string);
+	CuFailInternal(tc, file, line, 0);
 }
 
 void CuAssert_Line(CuTest* tc, const char* file, int line, const char* message, int condition)
@@ -167,7 +155,6 @@ void CuAssert_Line(CuTest* tc, const char* file, int line, const char* message, 
 void CuAssertStrEquals_LineMsg(CuTest* tc, const char* file, int line, const char* message, 
 	const char* expected, const char* actual)
 {
-	CuString string;
 	if ((expected == NULL && actual == NULL) ||
 	    (expected != NULL && actual != NULL &&
 	     strcmp(expected, actual) == 0))
@@ -175,48 +162,31 @@ void CuAssertStrEquals_LineMsg(CuTest* tc, const char* file, int line, const cha
 		return;
 	}
 
-	CuStringInit(&string);
-	if (message != NULL) 
-	{
-		CuStringAppend(&string, message);
-		CuStringAppend(&string, ": ");
-	}
-	CuStringAppend(&string, "expected <");
-	CuStringAppend(&string, expected);
-	CuStringAppend(&string, "> but was <");
-	CuStringAppend(&string, actual);
-	CuStringAppend(&string, ">");
-	CuFailInternal(tc, file, line, &string);
+	CuFailInternal(tc, file, line, 0); 
 }
 
 void CuAssertIntEquals_LineMsg(CuTest* tc, const char* file, int line, const char* message, 
 	int expected, int actual)
 {
-	char buf[STRING_MAX];
 	if (expected == actual) return;
-	sprintf(buf, "expected <%d> but was <%d>", expected, actual);
-	CuFail_Line(tc, file, line, message, buf);
+	CuFail_Line(tc, file, line, message, 0);
 }
 
 void CuAssertDblEquals_LineMsg(CuTest* tc, const char* file, int line, const char* message, 
 	double expected, double actual, double delta)
 {
-	char buf[STRING_MAX];
     double tmp = (expected - actual);
     if (tmp < 0) tmp *= -1;
 	if (tmp <= delta) return;
-	sprintf(buf, "expected <%f> but was <%f>", expected, actual); 
 
-	CuFail_Line(tc, file, line, message, buf);
+	CuFail_Line(tc, file, line, message, 0);
 }
 
 void CuAssertPtrEquals_LineMsg(CuTest* tc, const char* file, int line, const char* message, 
 	void* expected, void* actual)
 {
-	char buf[STRING_MAX];
 	if (expected == actual) return;
-	sprintf(buf, "expected pointer <0x%p> but was <0x%p>", expected, actual);
-	CuFail_Line(tc, file, line, message, buf);
+	CuFail_Line(tc, file, line, message, 0);
 }
 
 
@@ -243,10 +213,10 @@ void CuSuiteDelete(CuSuite *testSuite)
         unsigned int n;
         for (n=0; n < MAX_TEST_CASES; n++)
         {
-                if (testSuite->list[n])
-                {
-                        CuTestDelete(testSuite->list[n]);
-                }
+            if (testSuite->list[n])
+            {
+                CuTestDelete(testSuite->list[n]);
+            }
         }
         platform_free(testSuite);
 }
@@ -299,26 +269,6 @@ void CuSuiteDetails(CuSuite* testSuite, CuString* details)
 	}
 	else
 	{
-#if 0
-        int i;
-        int failCount = 0;
-
-		if (testSuite->failCount == 1)
-			CuStringAppend(details, "There was 1 failure:\n\r");
-		else
-			CuStringAppendFormat(details, "There were %d failures:\n\r", testSuite->failCount);
-
-		for (i = 0 ; i < testSuite->count ; ++i)
-		{
-			CuTest* testCase = testSuite->list[i];
-			if (testCase->failed)
-			{
-				failCount++;
-				CuStringAppendFormat(details, "%d) %s: %s\n\r",
-					failCount, testCase->name, testCase->message.buffer);
-			}
-		}
-#endif
 		CuStringAppend(details, "\n\r!!!FAILURES!!!\n\r");
 
 		CuStringAppendFormat(details, "Runs: %d ",   testSuite->count);
