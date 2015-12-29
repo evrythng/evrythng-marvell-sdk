@@ -12,12 +12,14 @@ RMRF=rm -rf
 MAKE=make
 PATCH=patch -p1 -N -s <
 CHDIR=cd
+COPY=cp
 
 WMSDK_BUNDLE=$(notdir $(WMSDK_BUNDLE_PATH))
 WMSDK_BUNDLE_DIR=$(EVRYTHNG_MARVELL_SDK_PATH)/$(patsubst %.tar.gz,%,$(WMSDK_BUNDLE))
 WMSDK_PATH=$(WMSDK_BUNDLE_DIR)/bin/wmsdk
 
 SDK_PATH=$(WMSDK_PATH)
+SDK_DIR=$(WMSDK_BUNDLE_DIR)/wmsdk
 
 ifeq ($(BOARD),mw300)
 BOARD_FW_PARTITION=mcufw
@@ -28,7 +30,7 @@ ifeq ($(BOARD),mc200_8801)
 BOARD_FW_PARTITION=mc200fw
 endif
 
-export WMSDK_BUNDLE_DIR BOARD SDK_PATH
+export WMSDK_BUNDLE_DIR BOARD SDK_PATH SDK_DIR
 
 ifeq ($(BOARD),mw300)
 export BOARD_FILE
@@ -44,7 +46,7 @@ libevrythng_clean:
 
 
 wmsdk: wmsdk_unpack
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig
+	if [ ! -e $(WMSDK_BUNDLE_DIR)/wmsdk/.config ]; then $(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig; fi;
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD) sdk
 
 wmsdk_clean:
