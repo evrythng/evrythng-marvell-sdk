@@ -46,7 +46,7 @@ libevrythng_clean:
 
 
 wmsdk: wmsdk_unpack
-	if [ ! -e $(WMSDK_BUNDLE_DIR)/wmsdk/.config ]; then $(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig; fi;
+	$(AT)if [ ! -e $(WMSDK_BUNDLE_DIR)/wmsdk/.config ]; then $(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig; fi;
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD) sdk
 
 wmsdk_clean:
