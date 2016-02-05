@@ -41,18 +41,18 @@ endif
 
 .PHONY: wmsdk wmsdk_clean wmsdk_unpack lib lib_clean wmsdk_fw_generator
 
-libevrythng: wmsdk
+libevrythng: wmsdk wmsdk_fw_generator
 	$(AT)$(MAKE) -C $(EVRYTHNG_MARVELL_SDK_PATH)/lib SDK_PATH=$(WMSDK_PATH) BOARD=$(BOARD)
 
 libevrythng_clean:
 	$(AT)$(MAKE) -C $(EVRYTHNG_MARVELL_SDK_PATH)/lib clean SDK_PATH=$(WMSDK_PATH)
 
 
-wmsdk: wmsdk_unpack wmsdk_fw_generator
-	$(AT)if [ ! -e $(WMSDK_BUNDLE_DIR)/wmsdk/.config ]; then $(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig; fi;
+wmsdk: wmsdk_unpack 
+	$(AT)if [ ! -e $(WMSDK_BUNDLE_DIR)/wmsdk/.config ]; then $(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig; fi;
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD) sdk
 
-wmsdk_fw_generator:
+wmsdk_fw_generator: wmsdk
 	$(AT)$(MAKE) -C $(WMSDK_FW_GENERATOR_DIR)
 	$(AT)$(COPY) $(WMSDK_FW_GENERATOR_DIR)/fw_generator $(WMSDK_FW_GENERATOR_BIN)
 
@@ -62,3 +62,4 @@ wmsdk_clean:
 wmsdk_unpack:
 	$(AT)$(UNTAR) $(WMSDK_BUNDLE_PATH) -C $(EVRYTHNG_MARVELL_SDK_PATH)
 	-$(AT)$(CHDIR) $(EVRYTHNG_MARVELL_SDK_PATH) && $(PATCH) remove_old_evt_lib.patch
+	$(AT)$(CHDIR) $(SDK_DIR) && $(RMRF) .config
