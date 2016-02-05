@@ -58,7 +58,7 @@ void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl)
     CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
 
 #define END_SINGLE_CONNECTION \
-    CuAssertIntEquals(tc, 0, SemaphoreWait(&sub_sem, 5000));\
+    CuAssertIntEquals(tc, 0, SemaphoreWait(&sub_sem, 10000));\
     EvrythngDisconnect(h1);\
     EvrythngDestroyHandle(h1);\
     PRINT_END_MEM_STATS
@@ -196,6 +196,51 @@ static void test_sub_callback(const char* str_json, size_t len)
     SemaphorePost(&sub_sem);
 }
 
+void test_unsub_nonexistent(CuTest* tc)
+{
+    PRINT_START_MEM_STATS
+    evrythng_handle_t h1;
+    common_tcp_init_handle(&h1);
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
+    
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
+    CuAssertIntEquals(tc, EVRYTHNG_NOT_SUBSCRIBED, EvrythngUnsubThngProperty(h1, THNG_1, PROPERTY_1));
+    CuAssertIntEquals(tc, EVRYTHNG_NOT_SUBSCRIBED, EvrythngUnsubThngProperty(h1, THNG_1, PROPERTY_2));
+
+    EvrythngDisconnect(h1);
+    EvrythngDestroyHandle(h1);
+    PRINT_END_MEM_STATS
+}
+
+void test_sub_alreadysub(CuTest* tc)
+{
+    PRINT_START_MEM_STATS
+    evrythng_handle_t h1;
+    common_tcp_init_handle(&h1);
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
+    
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngSubThngProperty(h1, THNG_1, PROPERTY_1, 0, test_sub_callback));
+    CuAssertIntEquals(tc, EVRYTHNG_ALREADY_SUBSCRIBED, EvrythngSubThngProperty(h1, THNG_1, PROPERTY_1, 0, test_sub_callback));
+
+    EvrythngDisconnect(h1);
+    EvrythngDestroyHandle(h1);
+    PRINT_END_MEM_STATS
+}
+
+void test_sub_diffpubstate(CuTest* tc)
+{
+    PRINT_START_MEM_STATS
+    evrythng_handle_t h1;
+    common_tcp_init_handle(&h1);
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
+    
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngSubThngProperty(h1, THNG_1, PROPERTY_1, 0, test_sub_callback));
+    CuAssertIntEquals(tc, EVRYTHNG_ALREADY_SUBSCRIBED, EvrythngSubThngProperty(h1, THNG_1, PROPERTY_1, 1, test_sub_callback));
+
+    EvrythngDisconnect(h1);
+    EvrythngDestroyHandle(h1);
+    PRINT_END_MEM_STATS
+}
 
 void test_subunsub_thng(CuTest* tc)
 {
@@ -359,6 +404,10 @@ CuSuite* CuGetSuite(void)
     SUITE_ADD_TEST(suite, test_tcp_connect_ok2);
 
 #endif
+	SUITE_ADD_TEST(suite, test_unsub_nonexistent);
+	SUITE_ADD_TEST(suite, test_sub_alreadysub);
+	SUITE_ADD_TEST(suite, test_sub_diffpubstate);
+
 	SUITE_ADD_TEST(suite, test_subunsub_thng);
 	SUITE_ADD_TEST(suite, test_subunsub_prod);
 
