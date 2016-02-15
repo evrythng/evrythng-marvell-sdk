@@ -20,7 +20,6 @@ COPY=cp
 # Optimization level, can be [0, 1, 2, 3, s].
 # Compiler flags definition.
 CFLAGS+=-ggdb \
-		-DMARVELL_PLATFORM \
 		-Os \
 		-D inline= \
 		-mthumb \
@@ -34,7 +33,7 @@ CFLAGS+=-ggdb \
 		-I $(CURDIR)/core/evrythng/include \
 		-I $(CURDIR)/core/embedded-mqtt/MQTTClient-C/src \
 		-I $(CURDIR)/core/embedded-mqtt/MQTTPacket/src \
-		-I $(CURDIR)/platform
+		-I $(CURDIR)/platform/marvell
 
 ifeq ($(CONFIG_CPU_MC200), y)
 CFLAGS += -mcpu=cortex-m3
@@ -111,7 +110,7 @@ install:
 	$(AT)rm -fr $(SDK_PATH)/incl/evrythng
 	$(AT)mkdir -p $(SDK_PATH)/incl/evrythng/marvell
 	$(AT)$(COPY) -pfr $(CURDIR)/core/evrythng/include/evrythng/*.h $(SDK_PATH)/incl/evrythng
-	$(AT)$(COPY) -pfr $(CURDIR)/platform/marvell/*.h $(SDK_PATH)/incl/evrythng/marvell/
+	$(AT)$(COPY) -pfr $(CURDIR)/platform/marvell/*.h $(SDK_PATH)/incl/evrythng
 	$(AT)$(COPY) -pfr $(CURDIR)/build/libevrythng.a $(SDK_PATH)/libs
 
 libs: $(LIBS_WM)

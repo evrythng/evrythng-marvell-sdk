@@ -58,7 +58,7 @@ void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl)
     CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngConnect(h1));
 
 #define END_SINGLE_CONNECTION \
-    CuAssertIntEquals(tc, 0, SemaphoreWait(&sub_sem, 10000));\
+    CuAssertIntEquals(tc, 0, platform_semaphore_wait(&sub_sem, 10000));\
     EvrythngDisconnect(h1);\
     EvrythngDestroyHandle(h1);\
     PRINT_END_MEM_STATS
@@ -193,7 +193,7 @@ static void test_sub_callback(const char* str_json, size_t len)
 {
     char msg[len+1]; snprintf(msg, sizeof msg, "%s", str_json);
     platform_printf("%s: %s\n\r", __func__, msg);
-    SemaphorePost(&sub_sem);
+    platform_semaphore_post(&sub_sem);
 }
 
 void test_unsub_nonexistent(CuTest* tc)
@@ -435,7 +435,7 @@ CuSuite* CuGetSuite(void)
 
 void RunAllTests()
 {
-    SemaphoreInit(&sub_sem);
+    platform_semaphore_init(&sub_sem);
 
 	CuString *output = CuStringNew();
     CuSuite* suite = CuGetSuite();
@@ -447,6 +447,6 @@ void RunAllTests()
     CuStringDelete(output);
     CuSuiteDelete(suite);
 
-    SemaphoreDeinit(&sub_sem);
+    platform_semaphore_deinit(&sub_sem);
 }
 

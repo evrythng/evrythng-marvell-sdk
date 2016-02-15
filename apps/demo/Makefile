@@ -57,7 +57,6 @@ SRCS = main.c $(SRCS-OPT) board.c
 
 EXTRACFLAGS += -I./src \
 			   -D APPCONFIG_DEBUG_ENABLE=1 \
-			   -D MARVELL_PLATFORM \
 			   $(EXTRACFLAGS-y)
 
 SRCS += $(SRCS-y)

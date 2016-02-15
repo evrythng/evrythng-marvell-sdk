@@ -3,7 +3,6 @@
  * www.evrythng.com
  */
 
-#include "marvell/types.h"
 #include "evrythng/platform.h"
 
 #include <stdint.h>
@@ -12,7 +11,7 @@
 #include <wm_net.h>
 
 
-void TimerInit(Timer* t)
+void platform_timer_init(Timer* t)
 {
     if (!t)
     {
@@ -25,7 +24,7 @@ void TimerInit(Timer* t)
 }
 
 
-void TimerDeinit(Timer* t)
+void platform_timer_deinit(Timer* t)
 {
     if (!t)
     {
@@ -35,7 +34,7 @@ void TimerDeinit(Timer* t)
 }
 
 
-char TimerIsExpired(Timer* t)
+char platform_timer_isexpired(Timer* t)
 {
     if (!t)
     {
@@ -47,7 +46,7 @@ char TimerIsExpired(Timer* t)
 }
 
 
-void TimerCountdownMS(Timer* t, unsigned int ms)
+void platform_timer_countdown(Timer* t, unsigned int ms)
 {
     if (!t)
     {
@@ -60,7 +59,7 @@ void TimerCountdownMS(Timer* t, unsigned int ms)
 }
 
 
-int TimerLeftMS(Timer* t)
+int platform_timer_left(Timer* t)
 {
     if (!t)
     {
@@ -75,7 +74,7 @@ int TimerLeftMS(Timer* t)
 }
 
 
-void NetworkInit(Network* n)
+void platform_network_init(Network* n)
 {
     if (!n)
     {
@@ -88,7 +87,7 @@ void NetworkInit(Network* n)
 }
 
 
-void NetworkSecuredInit(Network* n, const char* ca_buf, size_t ca_size)
+void platform_network_securedinit(Network* n, const char* ca_buf, size_t ca_size)
 {
     if (!n || !ca_buf || !ca_size)
     {
@@ -115,7 +114,7 @@ void NetworkSecuredInit(Network* n, const char* ca_buf, size_t ca_size)
 }
 
 
-int NetworkConnect(Network* n, char* hostname, int port)
+int platform_network_connect(Network* n, char* hostname, int port)
 {
     if (!n)
     {
@@ -195,7 +194,7 @@ int NetworkConnect(Network* n, char* hostname, int port)
 }
 
 
-void NetworkDisconnect(Network* n)
+void platform_network_disconnect(Network* n)
 {
     if (!n)
     {
@@ -209,7 +208,7 @@ void NetworkDisconnect(Network* n)
 }
 
 
-int NetworkRead(Network* n, unsigned char* buffer, int len, int timeout_ms)
+int platform_network_read(Network* n, unsigned char* buffer, int len, int timeout_ms)
 {
     if (!n)
     {
@@ -255,7 +254,7 @@ int NetworkRead(Network* n, unsigned char* buffer, int len, int timeout_ms)
 }
 
 
-int NetworkWrite(Network* n, unsigned char* buffer, int length, int timeout_ms)
+int platform_network_write(Network* n, unsigned char* buffer, int length, int timeout_ms)
 {
     if (!n)
     {
@@ -277,7 +276,7 @@ int NetworkWrite(Network* n, unsigned char* buffer, int length, int timeout_ms)
 }
 
 
-void MutexInit(Mutex* m)
+void platform_mutex_init(Mutex* m)
 {
     if (!m)
     {
@@ -293,7 +292,7 @@ void MutexInit(Mutex* m)
 }
 
 
-int MutexLock(Mutex* m)
+int platform_mutex_lock(Mutex* m)
 {
     if (!m)
     {
@@ -311,7 +310,7 @@ int MutexLock(Mutex* m)
 }
 
 
-int MutexUnlock(Mutex* m)
+int platform_mutex_unlock(Mutex* m)
 {
     if (!m)
     {
@@ -329,7 +328,7 @@ int MutexUnlock(Mutex* m)
 }
 
 
-void MutexDeinit(Mutex* m)
+void platform_mutex_deinit(Mutex* m)
 {
     if (!m)
     {
@@ -341,7 +340,7 @@ void MutexDeinit(Mutex* m)
 }
 
 
-void SemaphoreInit(Semaphore* s)
+void platform_semaphore_init(Semaphore* s)
 {
     if (!s)
     {
@@ -357,7 +356,7 @@ void SemaphoreInit(Semaphore* s)
 }
 
 
-void SemaphoreDeinit(Semaphore* s)
+void platform_semaphore_deinit(Semaphore* s)
 {
     if (!s)
     {
@@ -373,7 +372,7 @@ void SemaphoreDeinit(Semaphore* s)
 }
 
 
-int SemaphorePost(Semaphore* s)
+int platform_semaphore_post(Semaphore* s)
 {
     if (!s)
     {
@@ -391,7 +390,7 @@ int SemaphorePost(Semaphore* s)
 }
 
 
-int SemaphoreWait(Semaphore* s, int timeout_ms)
+int platform_semaphore_wait(Semaphore* s, int timeout_ms)
 {
     if (!s)
     {
@@ -413,13 +412,13 @@ static void func_wrapper(os_thread_arg_t arg)
     Thread* t = (Thread*)arg;
     (*t->func)(t->arg);
 
-    SemaphorePost(&t->join_sem);
+    platform_semaphore_post(&t->join_sem);
 
     os_thread_self_complete(0);
 }
 
 
-int ThreadCreate(Thread* t, 
+int platform_thread_create(Thread* t, 
         int priority, 
         const char* name, 
         void (*func)(void*), 
@@ -431,13 +430,13 @@ int ThreadCreate(Thread* t,
     t->func = func;
     t->arg = arg;
 
-    SemaphoreInit(&t->join_sem);
+    platform_semaphore_init(&t->join_sem);
 
     os_thread_stack_define(thread_stack, stack_size);
     int rc = os_thread_create(&t->tid, name, func_wrapper, (os_thread_arg_t)t, &thread_stack, priority);
     if (rc != WM_SUCCESS)
     {
-        SemaphoreDeinit(&t->join_sem);
+        platform_semaphore_deinit(&t->join_sem);
         platform_printf("%s: failed to create thread: rc = %d\n", __func__, rc);
         return -1;
     }
@@ -446,11 +445,11 @@ int ThreadCreate(Thread* t,
 }
 
 
-int ThreadJoin(Thread* t, int timeout_ms)
+int platform_thread_join(Thread* t, int timeout_ms)
 {
     if (!t) return -1;
 
-    if (SemaphoreWait(&t->join_sem, timeout_ms) != 0)
+    if (platform_semaphore_wait(&t->join_sem, timeout_ms) != 0)
     {
         platform_printf("%s: timeout waiting for join\n", __func__);
         return -1;
@@ -460,7 +459,7 @@ int ThreadJoin(Thread* t, int timeout_ms)
 }
 
 
-int ThreadDestroy(Thread* t)
+int platform_thread_destroy(Thread* t)
 {
     if (!t) return -1;
 
@@ -469,7 +468,7 @@ int ThreadDestroy(Thread* t)
         platform_printf("%s: failed to delete thread\n", __func__);
     }
 
-    SemaphoreDeinit(&t->join_sem);
+    platform_semaphore_deinit(&t->join_sem);
 
     return 0;
 }

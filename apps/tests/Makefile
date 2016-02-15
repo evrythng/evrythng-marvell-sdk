@@ -59,8 +59,7 @@ $(shell cp $(PROJECT_ROOT)/lib/core/tests/CuTest.c src)
 SRCS = main.c CuTest.c tests.c $(SRCS-OPT) board.c
 
 EXTRACFLAGS += -D APPCONFIG_DEBUG_ENABLE=1 \
-			   -D MARVELL_PLATFORM \
-			   -I $(SDK_PATH)/incl/evrythng2 \
+			   -I $(SDK_PATH)/incl/evrythng \
 			   -I $(PROJECT_ROOT)/lib/core/tests \
 			   $(EXTRACFLAGS-y) \
 
