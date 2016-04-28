@@ -6,8 +6,8 @@
 #include "evrythng/platform.h"
 
 #include <stdint.h>
+#include <stdarg.h>
 
-#include <autoconf.h>
 #include <wm_net.h>
 
 

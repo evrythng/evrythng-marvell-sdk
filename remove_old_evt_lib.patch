@@ -1,62 +1,20 @@
---- a/wmsdk_bundle-3.2.12/wmsdk/external/Makefile   2015-09-09 18:57:44.325813057 +0300
-+++ b/wmsdk_bundle-3.2.12/wmsdk/external/Makefile	2015-09-09 18:58:24.318616867 +0300
-@@ -21,18 +21,18 @@
- export ARCH-$(CONFIG_CPU_MW300) := cortex-m4
+--- a/wmsdk_bundle-3.3.33/Makefile	2016-04-28 14:35:59.440000000 +0300
++++ a/wmsdk_bundle-3.3.33/Makefile	2016-04-28 14:36:17.000000000 +0300
+@@ -63,7 +63,7 @@
+ subdir-y += sdk/external/cyassl
+ subdir-y += sdk/external/expat-2.1.0
+ subdir-y += sdk/external/arrayent
+-subdir-y += sdk/external/evrythng
++subdir-y += ../lib
+ subdir-y += sdk/external/aws_iot
+ subdir-y += sdk/external/libxively
  
+@@ -101,7 +101,7 @@
+ # APP management
  
--.PHONY: pre-sdk post-sdk clean install cmsis freertos usb usb_host btstack lwip cyassl evrythng libxively fw_supplicant blestack
-+.PHONY: pre-sdk post-sdk clean install cmsis freertos usb usb_host btstack lwip cyassl libxively fw_supplicant blestack
- 
--pre-sdk: cmsis freertos usb lwip cyassl btstack evrythng libxively fw_supplicant blestack
-+pre-sdk: cmsis freertos usb lwip cyassl btstack libxively fw_supplicant blestack
- 	@echo "Pre-SDK done"
--usb lwip cyassl btstack libxively evrythng fw_supplicant blestack: freertos
-+usb lwip cyassl btstack libxively fw_supplicant blestack: freertos
- 
- post-sdk: usb_host
- 	@echo "Post-SDK done"
- 
--clean: cmsis_clean freertos_clean usb_clean lwip_clean cyassl_clean btstack_clean evrythng_clean libxively_clean usb_host_clean fw_supplicant_clean blestack_clean
-+clean: cmsis_clean freertos_clean usb_clean lwip_clean cyassl_clean btstack_clean libxively_clean usb_host_clean fw_supplicant_clean blestack_clean
- 
--pre-sdk-install: cmsis_install freertos_install usb_install lwip_install cyassl_install evrythng_install btstack_install libxively_install fw_supplicant_install arrayent_install blestack_install
-+pre-sdk-install: cmsis_install freertos_install usb_install lwip_install cyassl_install btstack_install libxively_install fw_supplicant_install arrayent_install blestack_install
- 
- post-sdk-install: post_fw_supplicant_install post_blestack_install
- 
-@@ -91,11 +91,6 @@
- 	$(STRIP) --strip-debug $(CYASSL_PATH)/lib/*.a; \
- 	fi
- 
--evrythng:
--	echo "external/evrythng"; \
--        $(MAKE) $(WMSDK_PARALLEL_MAKE) -C $(EVRYTHING_PATH); \
--
--
- libxively: lwip
- 	@echo "external/libxively"
- 	$(MAKE) $(WMSDK_PARALLEL_MAKE) -C libxively/ -f Makefile.wmsdk all
-@@ -148,9 +143,6 @@
- lwip_clean:
- 	$(MAKE) -C lwip/ clean
- 
--evrythng_clean:
--	$(MAKE) -C $(EVRYTHING_PATH) clean;
--
- 
- cyassl_clean:
- 	@if [ -d "$(CYASSL_PATH)" ] ; then \
-@@ -211,13 +203,6 @@
- 	$(COPY_CMD) -a $(BTSTACK_PATH)/build/libbtstack.a $(INSTALL_DIR)/libs; \
- 	fi
- 
--evrythng_install:
--# evrythng
--	rm -fr $(INSTALL_DIR)/incl/evrythng; \
--	mkdir $(INSTALL_DIR)/incl/evrythng; \
--	$(COPY_CMD) -a $(EVRYTHING_PATH)/build/evrythng/*.h $(INSTALL_DIR)/incl/evrythng; \
--	$(COPY_CMD) -a $(EVRYTHING_PATH)/build/libevrythng.a $(INSTALL_DIR)/libs/ ;
--
- cyassl_install:
- # cyassl
- 	$(AT)if [ -d "$(EXT_CYASSL_PATH)" ] ; then \
+ ifndef APP
+-  subdir-y += sample_apps/sample_apps.mk
++  #subdir-y += sample_apps/sample_apps.mk
+ else
+   override APP := $(call b-abspath,$(APP))
+   ifeq ($(wildcard $(APP)),)

@@ -362,6 +362,7 @@ static void configure_gpios()
 }
 
 
+
 /* This is the main event handler for this project. The application framework
  * calls this function in response to the various events in the system.
  */
