@@ -518,3 +518,17 @@ int platform_printf(const char* fmt, ...)
     return rc;
 }
 #endif
+
+static uint32_t seed;
+
+int platform_rand()
+{
+	if (!seed) 
+	{
+		//srand(os_ticks_get());
+		seed = sample_initialise_random_seed();
+		srand(seed);
+	}
+
+	return rand();
+}
