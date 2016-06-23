@@ -8,6 +8,13 @@ all: demo tests
 
 include common.mk
 
+ifeq ($(BOARD),mw300)
+BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/mw300_rd
+else
+BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/$(BOARD)
+endif
+
+
 .PHONY: all demo demo_clean tests tests_clean clean 
 
 demo: wmsdk 
@@ -18,14 +25,14 @@ demo_clean:
 
 demo_flashprog: demo
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
-	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(WMSDK_BUNDLE_DIR)/bin/mw300_defconfig/mw300_rd/evrythng_demo.bin \
+	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/evrythng_demo.bin
 
 demo_ramload: demo
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
-	sudo ./ramload.sh $(PROJECT_ROOT)/apps/demo/bin/evrythng_demo.axf \
+	sudo ./ramload.py $(BOARD_BIN_DIR)/evrythng_demo.axf
 
 demo_footprint:
-	$(AT)$(WMSDK_BUNDLE_DIR)/wmsdk/tools/bin/footprint.pl -m apps/demo/bin/evrythng_demo.map
+	$(AT)$(SDK_DIR)/tools/bin/footprint.pl -m $(BOARD_BIN_DIR)/evrythng_demo.map
 
 
 
@@ -40,11 +47,11 @@ tests_clean:
 
 tests_ramload: tests
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
-	sudo ./ramload.py $(WMSDK_BUNDLE_DIR)/bin/mw300_defconfig/mw300_rd/evrythng_tests.axf \
+	sudo ./ramload.py $(BOARD_BIN_DIR)/evrythng_tests.axf
 
 tests_flashprog: tests
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
-	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(WMSDK_BUNDLE_DIR)/bin/mw300_defconfig/mw300_rd/evrythng_tests.bin \
+	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/evrythng_tests.bin
 
 clean: demo_clean tests_clean wmsdk_clean 
 

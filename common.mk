@@ -22,8 +22,8 @@ WMSDK_DIR=$(notdir $(WMSDK_BUNDLE_DIR))
 SDK_PATH=$(WMSDK_PATH)
 SDK_DIR=$(WMSDK_BUNDLE_DIR)/sdk
 
-WMSDK_FW_GENERATOR_DIR=$(SDK_DIR)/tools/src/fw_generator
-WMSDK_FW_GENERATOR_BIN=$(SDK_DIR)/tools/bin/fw_generator
+WMSDK_FW_GENERATOR_DIR=$(SDK_DIR)/tools/host-tools/fw_generator
+WMSDK_FW_GENERATOR_BIN=$(WMSDK_FW_GENERATOR_DIR)/ed_chacha_fw_generator
 
 ifeq ($(BOARD),mw300)
 BOARD_FW_PARTITION=mcufw
@@ -46,8 +46,8 @@ wmsdk: $(WMSDK_DIR)
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD)
 
 wmsdk_fw_generator: wmsdk
-	$(AT)$(MAKE) -C $(WMSDK_FW_GENERATOR_DIR)
-	$(AT)$(COPY) $(WMSDK_FW_GENERATOR_DIR)/fw_generator $(WMSDK_FW_GENERATOR_BIN)
+	$(AT) SDK_DIR=$(WMSDK_BUNDLE_DIR) $(MAKE) -C $(WMSDK_FW_GENERATOR_DIR)
+	#$(AT)$(COPY) $(WMSDK_FW_GENERATOR_DIR)/fw_generator $(WMSDK_FW_GENERATOR_BIN)
 
 wmsdk_clean:
 	$(AT)$(RMRF) $(WMSDK_BUNDLE_DIR)
