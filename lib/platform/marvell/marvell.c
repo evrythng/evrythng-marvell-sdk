@@ -202,7 +202,7 @@ void platform_network_disconnect(Network* n)
         return;
     }
 
-    if (n->tls_enabled) tls_close(&n->tls_handle);
+    if (n->tls_enabled && n->tls_handle) tls_close(&n->tls_handle);
     shutdown(n->socket, SHUT_RDWR);
 	close(n->socket);
 }
@@ -237,18 +237,20 @@ int platform_network_read(Network* n, unsigned char* buffer, int len, int timeou
             break;
         }
         else if (rc == -1)
-		{   
-			if (errno != ENOTCONN && errno != ECONNRESET)
-			{
-				bytes = -1;
-				break;
-			}
-		}
-		else
-			bytes += rc;
-	}
+        {   
+            if (errno != ENOTCONN && errno != ECONNRESET)
+            {
+                bytes = -1;
+                break;
+            }
+        }
+        else
+            bytes += rc;
+    }
 
-    //platform_printf("%s: recv %d bytes\n", __func__, bytes);
+    if (!bytes)
+        platform_printf("%s:%d: connection closed by the peer\n", 
+                __func__, __LINE__);
 
 	return bytes;
 }
