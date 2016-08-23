@@ -8,7 +8,7 @@
 
 exec-y += evrythng_tests
 
-evrythng_demo-objs-y := src/main.c src/CuTest.c src/tests.c 
+evrythng_tests-objs-y := src/main.c src/CuTest.c src/tests.c 
 
-evrythng_demo-cflags-y := -D APPCONFIG_DEBUG_ENABLE=1
+evrythng_tests-cflags-y := -D APPCONFIG_DEBUG_ENABLE=1
 
