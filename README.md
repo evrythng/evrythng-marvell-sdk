@@ -103,9 +103,9 @@ The source of the demo application is located in `apps/demo/main.c`. This app is
 
 The key features of the application are:
 
-1. Subscribing to the LED Action to control the LEDs when an [Action](https://dashboard.evrythng.com/documentation/api/actions) notification is sent via the EVRYTHNG Cloud.
-2. Publishing [Properties](https://dashboard.evrythng.com/documentation/api/properties) when buttons are pressed.
-3. Publish [Action](https://dashboard.evrythng.com/documentation/api/actions) when the buttons are pressed.
+1. Subscribing to the LED Action to control the LEDs when an [Action](https://developers.evrythng.com/reference#actions-1) notification is sent via the EVRYTHNG Cloud.
+2. Publishing [Properties](https://developers.evrythng.com/reference#properties-1) when the buttons are pressed.
+3. Publish an Action when the buttons are pressed.
 
 ## Creating your own application
 
