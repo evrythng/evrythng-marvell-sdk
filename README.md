@@ -28,7 +28,7 @@ Ensure you use the `--recursive` option as this project depends on the [EVRYTHNG
 
 1. In order to compile the library and run the tests you should install the following dependencies on your local machine:
 `sudo apt-get install gcc-arm-none-eabi`
-2. Download the latest [Marvell WMSDK](http://extranet.marvell.com). This SDK was tested with WMSDK version 3.2.12 but newer versions should be supported as well.
+2. Download the latest [Marvell WMSDK](http://extranet.marvell.com). This SDK was tested with WMSDK version 3.5.25 but newer versions should be supported as well.
 
 ## Configuring
 
@@ -58,7 +58,7 @@ make clean
 ```
 ## Running and flashing the demo and tests applications
 
-Additionally you can use targets ending with `_flashprog`, `_ramload`, v_footprint`.
+Additionally you can use targets ending with `_flashprog`, `_ramload`, `_footprint`.
 For example:
 ```
 make demo_flashprog
