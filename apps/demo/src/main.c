@@ -35,7 +35,7 @@ static os_thread_stack_define(button_stack, 8 * 1024);
 #define MAX_DOWNLOAD_DATA 150
 #define MAX_URL_LEN 128
 
-#define JSON_NUM_TOKENS 40
+#define JSON_NUM_TOKENS 60
 
 static output_gpio_cfg_t led_1;
 static output_gpio_cfg_t led_2;
