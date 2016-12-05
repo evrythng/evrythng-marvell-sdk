@@ -1,20 +1,12 @@
---- a/wmsdk_bundle-3.3.33/Makefile	2016-04-28 14:35:59.440000000 +0300
-+++ a/wmsdk_bundle-3.3.33/Makefile	2016-04-28 14:36:17.000000000 +0300
-@@ -63,7 +63,7 @@
+--- a/wmsdk_bundle-3.5.25/Makefile  2016-12-05 15:59:10.827032711 +0300
++++ b/wmsdk_bundle-3.5.25/Makefile	2016-12-05 16:00:24.423939022 +0300
+@@ -74,8 +74,7 @@
  subdir-y += sdk/external/cyassl
  subdir-y += sdk/external/expat-2.1.0
- subdir-y += sdk/external/arrayent
--subdir-y += sdk/external/evrythng
+ subdir-y += sdk/external/nghttp2
+-subdir-$(evt-agent-y) += sdk/external/evrythng
+-subdir-$(aws-agent-y) += sdk/external/aws_iot
 +subdir-y += ../lib
- subdir-y += sdk/external/aws_iot
- subdir-y += sdk/external/libxively
  
-@@ -101,7 +101,7 @@
- # APP management
  
- ifndef APP
--  subdir-y += sample_apps/sample_apps.mk
-+  #subdir-y += sample_apps/sample_apps.mk
- else
-   override APP := $(call b-abspath,$(APP))
-   ifeq ($(wildcard $(APP)),)
+ ############################################

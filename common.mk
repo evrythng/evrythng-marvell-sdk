@@ -43,7 +43,7 @@ endif
 .PHONY: wmsdk wmsdk_clean lib lib_clean wmsdk_fw_generator
 
 wmsdk: $(WMSDK_DIR) 
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD)
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD) sdk
 
 wmsdk_fw_generator: wmsdk
 	$(AT) SDK_DIR=$(WMSDK_BUNDLE_DIR) $(MAKE) -C $(WMSDK_FW_GENERATOR_DIR)
