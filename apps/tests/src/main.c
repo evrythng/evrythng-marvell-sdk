@@ -19,7 +19,7 @@
 #include <board.h>
 #include <wmtime.h>
 
-#include <tests.h>
+#include "tests.h"
 
 static os_thread_t app_thread;
 static os_thread_stack_define(app_stack, 16 * 1024);

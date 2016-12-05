@@ -297,6 +297,7 @@ void test_subunsub_prod(CuTest* tc)
     PRINT_END_MEM_STATS
 }
 
+
 void test_pubsub_thng_prop(CuTest* tc)
 {
     START_SINGLE_CONNECTION
@@ -304,6 +305,16 @@ void test_pubsub_thng_prop(CuTest* tc)
     CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngPubThngProperty(h1, THNG_1, PROPERTY_1, PROPERTY_VALUE_JSON));
     END_SINGLE_CONNECTION
 }
+
+
+void test_pubstates_thng_prop(CuTest* tc)
+{
+    START_SINGLE_CONNECTION
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngPubThngProperty(h1, THNG_1, PROPERTY_1, PROPERTY_VALUE_JSON));
+    CuAssertIntEquals(tc, EVRYTHNG_SUCCESS, EvrythngSubThngProperty(h1, THNG_1, PROPERTY_1, 1, test_sub_callback));
+    END_SINGLE_CONNECTION
+}
+
 
 void test_pubsuball_thng_prop(CuTest* tc)
 {
@@ -389,7 +400,6 @@ CuSuite* CuGetSuite(void)
 {
 	CuSuite* suite = CuSuiteNew();
 
-#if 1
 	SUITE_ADD_TEST(suite, test_init_handle_ok);
 	SUITE_ADD_TEST(suite, test_init_handle_fail);
 	SUITE_ADD_TEST(suite, test_set_url_ok);
@@ -403,7 +413,6 @@ CuSuite* CuGetSuite(void)
 	SUITE_ADD_TEST(suite, test_tcp_connect_ok1);
     SUITE_ADD_TEST(suite, test_tcp_connect_ok2);
 
-#endif
 	SUITE_ADD_TEST(suite, test_unsub_nonexistent);
 	SUITE_ADD_TEST(suite, test_sub_alreadysub);
 	SUITE_ADD_TEST(suite, test_sub_diffpubstate);
@@ -411,8 +420,9 @@ CuSuite* CuGetSuite(void)
 	SUITE_ADD_TEST(suite, test_subunsub_thng);
 	SUITE_ADD_TEST(suite, test_subunsub_prod);
 
-#if 1
 	SUITE_ADD_TEST(suite, test_pubsub_thng_prop);
+	SUITE_ADD_TEST(suite, test_pubstates_thng_prop);
+
 	SUITE_ADD_TEST(suite, test_pubsuball_thng_prop);
 
 	SUITE_ADD_TEST(suite, test_pubsub_thng_action);
@@ -427,7 +437,6 @@ CuSuite* CuGetSuite(void)
 
 	SUITE_ADD_TEST(suite, test_pubsub_action);
 	SUITE_ADD_TEST(suite, test_pubsuball_actions);
-#endif
 
 	return suite;
 }

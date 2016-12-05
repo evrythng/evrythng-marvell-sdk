@@ -35,7 +35,7 @@ static os_thread_stack_define(button_stack, 8 * 1024);
 #define MAX_DOWNLOAD_DATA 150
 #define MAX_URL_LEN 128
 
-#define JSON_NUM_TOKENS 40
+#define JSON_NUM_TOKENS 60
 
 static output_gpio_cfg_t led_1;
 static output_gpio_cfg_t led_2;
@@ -360,6 +360,7 @@ static void configure_gpios()
     push_button_set_cb((input_gpio_cfg_t){button_1, GPIO_ACTIVE_LOW}, pushbutton_cb, 0, 0, 0);
     push_button_set_cb((input_gpio_cfg_t){button_2, GPIO_ACTIVE_LOW}, pushbutton_cb, 0, 0, 0);
 }
+
 
 
 /* This is the main event handler for this project. The application framework
