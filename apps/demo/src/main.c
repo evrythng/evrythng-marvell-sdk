@@ -18,6 +18,7 @@
 #include <board.h>
 #include <wmtime.h>
 #include <psm.h>
+#include <psm-utils.h>
 #include <evrythng/evrythng.h>
 #include <led_indicator.h>
 #include <push_button.h>
@@ -34,8 +35,6 @@ static os_thread_stack_define(button_stack, 8 * 1024);
 #define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
 #define MAX_DOWNLOAD_DATA 150
 #define MAX_URL_LEN 128
-
-#define JSON_NUM_TOKENS 60
 
 static output_gpio_cfg_t led_1;
 static output_gpio_cfg_t led_2;
@@ -104,8 +103,7 @@ static void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl
 static void action_led_callback(const char* json_str, size_t size)
 {
     jobj_t json;
-    jsontok_t json_tokens[JSON_NUM_TOKENS];
-    int err = json_init(&json, json_tokens, JSON_NUM_TOKENS, (char*)json_str, size);
+    int err = json_parse_start(&json, (char*)json_str, size);
     if (err != WM_SUCCESS) 
     {
         wmprintf("Wrong json string\n\r");
@@ -118,7 +116,7 @@ static void action_led_callback(const char* json_str, size_t size)
 	if (json_get_val_str(&json, "type", type, sizeof(type)) != WM_SUCCESS) 
     {
 		wmprintf("type doesn't exist\r\n");
-		return;
+        goto callback_exit;
 	}
 
     if (strcmp(type, "_led1") == 0) 
@@ -132,25 +130,26 @@ static void action_led_callback(const char* json_str, size_t size)
     else
     {
 		wmprintf("not expected type value\r\n");
-		return;
+        goto callback_exit;
     }
 
     if (json_get_composite_object(&json, "customFields") != WM_SUCCESS) 
     {
         wmprintf("Custom fields doesn't exist\n\r");
-        return;
+        goto callback_exit;
     }
 
     char status[16];
     if (json_get_val_str(&json, "status", status, sizeof(status)) != WM_SUCCESS) 
     {
         wmprintf("Status doesn't exist\n\r");
-        return;
+        goto callback_exit;
     }
 
     json_release_composite_object(&json);
 
     wmprintf("Received action: type = \"%s\", status = \"%s\"\n\r", type, status);
+
     if (strcmp(status, "0") == 0) 
     {
         led_off(led);
@@ -159,6 +158,9 @@ static void action_led_callback(const char* json_str, size_t size)
     {
         led_on(led);
     }
+
+callback_exit:
+    json_parse_stop(&json);
 }
 
 
@@ -313,9 +315,8 @@ static void set_device_time()
 	  "timestamp":1429514751927
 	  }
 	*/
-	jsontok_t json_tokens[9];
 	jobj_t json_obj;
-	if (json_init(&json_obj, json_tokens, 10, buf, size) != WM_SUCCESS) {
+	if (json_parse_start(&json_obj, buf, size) != WM_SUCCESS) {
 		wmprintf("Wrong json string\r\n");
 		goto out_time;
 	}
@@ -328,7 +329,10 @@ static void set_device_time()
 		timestamp = timestamp + offset;
 	}
 	wmtime_time_set_posix(timestamp/1000);
- out_time:
+
+    json_parse_stop(&json_obj);
+
+out_time:
 	http_close_session(&handle);
 	return;
 }
@@ -372,7 +376,7 @@ int common_event_handler(int event, void *data)
 	static bool is_cloud_started;
 	switch (event) {
 	case AF_EVT_WLAN_INIT_DONE:
-		ret = psm_cli_init();
+		ret = psm_cli_init(sys_psm_get_handle(), "evrythng");
 		if (ret != WM_SUCCESS)
 			wmprintf("Error: psm_cli_init failed\r\n");
 		int i = (int) data;
