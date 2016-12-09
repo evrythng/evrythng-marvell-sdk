@@ -15,6 +15,7 @@
 #include <wmtime.h>
 #include <cli.h>
 #include <psm.h>
+#include <psm-utils.h>
 #include <wmstdio.h>
 #include <board.h>
 #include <wmtime.h>
@@ -122,7 +123,7 @@ int common_event_handler(int event, void *data)
 	static bool is_cloud_started;
 	switch (event) {
 	case AF_EVT_WLAN_INIT_DONE:
-		ret = psm_cli_init();
+		ret = psm_cli_init(sys_psm_get_handle(), "evrythng");
 		if (ret != WM_SUCCESS)
 			wmprintf("Error: psm_cli_init failed\r\n");
 		int i = (int) data;
