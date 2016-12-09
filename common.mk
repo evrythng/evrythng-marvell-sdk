@@ -1,6 +1,3 @@
-
-include $(EVRYTHNG_MARVELL_SDK_PATH)/config.mk
-
 ifeq ($(NOISY),1)
 AT=
 else
@@ -25,6 +22,10 @@ SDK_DIR=$(WMSDK_BUNDLE_DIR)/sdk
 WMSDK_FW_GENERATOR_DIR=$(SDK_DIR)/tools/host-tools/fw_generator
 WMSDK_FW_GENERATOR_BIN=$(WMSDK_FW_GENERATOR_DIR)/ed_chacha_fw_generator
 
+WMSDK_CYASSL_FEATURE_PACK ?= fp0
+WMSDK_CONFIG ?= $(BOARD)_defconfig
+BOARD ?= mw300
+
 ifeq ($(BOARD),mw300)
 BOARD_FW_PARTITION=mcufw
 BOARD_FILE=$(SDK_PATH)/src/boards/mw300_rd.c
@@ -42,7 +43,7 @@ endif
 
 .PHONY: wmsdk wmsdk_clean lib lib_clean wmsdk_fw_generator
 
-wmsdk: $(WMSDK_DIR) 
+wmsdk: $(WMSDK_BUNDLE_DIR) 
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) BOARD=$(BOARD) sdk
 
 wmsdk_fw_generator: wmsdk
@@ -52,8 +53,7 @@ wmsdk_fw_generator: wmsdk
 wmsdk_clean:
 	$(AT)$(RMRF) $(WMSDK_BUNDLE_DIR)
 
-$(WMSDK_DIR):
+$(WMSDK_BUNDLE_DIR):
 	$(AT)$(UNTAR) $(WMSDK_BUNDLE_PATH) -C $(EVRYTHNG_MARVELL_SDK_PATH)
 	$(AT)$(CHDIR) $(EVRYTHNG_MARVELL_SDK_PATH) && $(PATCH) remove_old_evt_lib.patch
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) $(BOARD)_defconfig
-
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) CYASSL_FEATURE_PACK=$(WMSDK_CYASSL_FEATURE_PACK) $(WMSDK_CONFIG)

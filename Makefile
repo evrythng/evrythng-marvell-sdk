@@ -6,6 +6,7 @@ export PROJECT_ROOT
 
 all: demo tests
 
+include $(PROJECT_ROOT)/config.mk
 include common.mk
 
 ifeq ($(BOARD),mw300)
