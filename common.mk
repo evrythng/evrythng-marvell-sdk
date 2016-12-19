@@ -22,6 +22,12 @@ SDK_DIR=$(WMSDK_BUNDLE_DIR)/sdk
 WMSDK_FW_GENERATOR_DIR=$(SDK_DIR)/tools/host-tools/fw_generator
 WMSDK_FW_GENERATOR_BIN=$(WMSDK_FW_GENERATOR_DIR)/ed_chacha_fw_generator
 
+WMSDK_USER_PATCHES ?=
+ifneq ($(WMSDK_PATCHES_PATH),)
+WMSDK_USER_PATCHES = $(wildcard $(WMSDK_PATCHES_PATH)/*.patch)
+endif
+WMSDK_PATCHES = $(EVRYTHNG_MARVELL_SDK_PATH)/remove_old_evt_lib.patch $(WMSDK_USER_PATCHES)
+
 WMSDK_CYASSL_FEATURE_PACK ?= fp0
 WMSDK_CONFIG ?= $(BOARD)_defconfig
 BOARD ?= mw300
@@ -53,7 +59,8 @@ wmsdk_fw_generator: wmsdk
 wmsdk_clean:
 	$(AT)$(RMRF) $(WMSDK_BUNDLE_DIR)
 
+
 $(WMSDK_BUNDLE_DIR):
 	$(AT)$(UNTAR) $(WMSDK_BUNDLE_PATH) -C $(EVRYTHNG_MARVELL_SDK_PATH)
-	$(AT)$(CHDIR) $(EVRYTHNG_MARVELL_SDK_PATH) && $(PATCH) remove_old_evt_lib.patch
+	$(foreach patch, $(WMSDK_PATCHES), $(CHDIR) $(WMSDK_BUNDLE_DIR) && $(PATCH) $(patch);)
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) CYASSL_FEATURE_PACK=$(WMSDK_CYASSL_FEATURE_PACK) $(WMSDK_CONFIG)

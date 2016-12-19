@@ -1,5 +1,5 @@
---- a/wmsdk_bundle-3.5.25/Makefile  2016-12-05 15:59:10.827032711 +0300
-+++ b/wmsdk_bundle-3.5.25/Makefile	2016-12-05 16:00:24.423939022 +0300
+--- a/Makefile  2016-12-05 15:59:10.827032711 +0300
++++ b/Makefile	2016-12-05 16:00:24.423939022 +0300
 @@ -74,8 +74,7 @@
  subdir-y += sdk/external/cyassl
  subdir-y += sdk/external/expat-2.1.0
