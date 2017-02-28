@@ -253,9 +253,9 @@ static void evrythng_task()
     EvrythngSetLogCallback(evt_handle, log_callback);
     EvrythngSetConnectionCallbacks(evt_handle, on_connection_lost, on_connection_restored);
 
-    while (EvrythngConnect(evt_handle) != EVRYTHNG_SUCCESS) 
+    while ((rc = EvrythngConnect(evt_handle)) != EVRYTHNG_SUCCESS) 
     {
-        wmprintf("Retry\n\r");
+        wmprintf("connection failed (%d), retry\n\r", rc);
         os_thread_sleep(os_msec_to_ticks(5000));
     }
     wmprintf("Connected\n\r");
