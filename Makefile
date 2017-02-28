@@ -4,7 +4,7 @@ PROJECT_ROOT=$(shell pwd)
 
 export PROJECT_ROOT
 
-all: demo tests
+all: demo
 
 include $(PROJECT_ROOT)/config.mk
 include common.mk
@@ -40,10 +40,8 @@ target_reboot:
 	sudo ./flashprog.py -r
 
 
-gen_config:
-	$(MAKE) -C $(PROJECT_ROOT)/lib/core gen_config
-
-tests: gen_config wmsdk
+tests: wmsdk
+	@$(PROJECT_ROOT)/lib/core/tests/gen_header.sh $(PROJECT_ROOT)/test_config $(PROJECT_ROOT)/apps/tests/src/evrythng_config.h
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/tests
 
 tests_clean:
