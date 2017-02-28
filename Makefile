@@ -41,6 +41,7 @@ target_reboot:
 
 
 tests: wmsdk
+	@cp $(PROJECT_ROOT)/lib/core/tests/tests.c $(PROJECT_ROOT)/apps/tests/src/
 	@$(PROJECT_ROOT)/lib/core/tests/gen_header.sh $(PROJECT_ROOT)/test_config $(PROJECT_ROOT)/apps/tests/src/evrythng_config.h
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/tests
 

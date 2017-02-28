@@ -44,3 +44,4 @@ wmsdk_bundle-*
 
 /test_config
 apps/tests/src/evrythng_config.h
+apps/tests/src/tests.c
