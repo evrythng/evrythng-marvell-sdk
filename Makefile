@@ -35,6 +35,9 @@ demo_ramload: demo
 demo_footprint:
 	$(AT)$(SDK_DIR)/tools/bin/footprint.pl -m $(BOARD_BIN_DIR)/evrythng_demo.map
 
+target_reboot: 
+	cd $(WMSDK_PATH)/tools/OpenOCD; \
+	sudo ./flashprog.py -r
 
 
 gen_config:
