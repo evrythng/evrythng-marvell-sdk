@@ -8,7 +8,7 @@
 
 #include <stddef.h>
 #include <wm_os.h>
-#include <wm-tls.h>
+#include <wm_mbedtls_helper_api.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -23,8 +23,13 @@ typedef struct Network
 {
     int socket;
     int tls_enabled;
-    tls_handle_t tls_handle;
-    tls_init_config_t tls_config;
+
+    const char* ca_buf;
+    size_t ca_size;
+
+    wm_mbedtls_cert_t tls_cert;
+    mbedtls_ssl_config* tls_config;
+    mbedtls_ssl_context* tls_context;
 } Network;
 
 typedef struct Mutex

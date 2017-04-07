@@ -82,8 +82,7 @@ void platform_network_init(Network* n)
         return;
     }
 
-    n->socket = 0;
-    n->tls_enabled = 0;
+    memset(n, 0, sizeof(Network));
 }
 
 
@@ -95,33 +94,69 @@ void platform_network_securedinit(Network* n, const char* ca_buf, size_t ca_size
         return;
     }
 
-	int rc = tls_lib_init();
-	if (rc != WM_SUCCESS) 
-    {
-        platform_printf("%s: failed to init tls lib\n", __func__);
-        return;
-    }
+    memset(n, 0, sizeof(Network));
 
-	/* Initialize the TLS configuration structure */
-    memset(&n->tls_config, 0, sizeof n->tls_config);
-	n->tls_config = (tls_init_config_t){
-		.flags = TLS_CHECK_SERVER_CERT,
-		.tls.client.ca_cert = (unsigned char*)ca_buf,
-		.tls.client.ca_cert_size = ca_size - 1,
-	};
+    n->ca_buf = ca_buf;
+    n->ca_size = ca_size;
 
     n->tls_enabled = 1;
 }
 
+static const mbedtls_x509_crt_profile wm_mbedtls_x509_crt_profile_evrythng = {
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_MD2)     |
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_MD4)     |
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_MD5)     |
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA1)    |
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA224)  |
+	MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA256)  |
+	MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA384)  |
+	MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA512)  |
+    MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_RIPEMD160),
+	0xFFFFFFF, /* Any PK alg    */
+	0xFFFFFFF, /* Any curve     */
+	1024,
+};
 
-int platform_network_connect(Network* n, char* hostname, int port)
+static int tls_connect(Network* n, const char* hostname)
 {
-    if (!n)
-    {
-        platform_printf("%s: invalid network\n", __func__);
-        return -1;
+    int rc = -1;
+
+    n->tls_cert.ca_chain = wm_mbedtls_parse_cert(
+            (const unsigned char*)n->ca_buf, n->ca_size);
+    if (!n->tls_cert.ca_chain) {
+        platform_printf("%s: failed to parse certificate chain\n", __func__);
+        return rc;
     }
 
+    n->tls_config = wm_mbedtls_ssl_config_new(&n->tls_cert, 
+            MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_VERIFY_REQUIRED);
+    if (!n->tls_config) {
+        platform_printf("%s: failed to create tls config\n", __func__);
+        return rc;
+    }
+
+	mbedtls_ssl_conf_cert_profile(n->tls_config,
+			&wm_mbedtls_x509_crt_profile_evrythng);
+
+    n->tls_context = wm_mbedtls_ssl_new(n->tls_config, 
+            n->socket, (const char*) hostname);
+    if (!n->tls_context) {
+        platform_printf("Failed to create tls context\n");
+        return rc;
+    }
+
+    rc = wm_mbedtls_ssl_connect(n->tls_context);
+    if (rc != 0) {
+        platform_printf("tls connection failed: 0x%02x\n", rc);
+        return rc;
+    }
+
+    return 0;
+}
+
+
+static int tcp_connect(Network* n, const char* hostname, int port)
+{
 	int rc = -1;
     int attempt = 1;
 	int type = SOCK_STREAM;
@@ -130,27 +165,22 @@ int platform_network_connect(Network* n, char* hostname, int port)
 	struct addrinfo *result = NULL;
 	struct addrinfo hints = {0, AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP, 0, NULL, NULL, NULL};
 
-    do
-    {
+    do {
         platform_printf("trying to resolve hostname (attempt %d)\n", attempt);
 
-        if ((rc = getaddrinfo(hostname, NULL, &hints, &result)) == 0)
-        {
+        if ((rc = getaddrinfo(hostname, NULL, &hints, &result)) == 0) {
             struct addrinfo* res = result;
 
             /* prefer ip4 addresses */
-            while (res)
-            {
-                if (res->ai_family == AF_INET)
-                {
+            while (res) {
+                if (res->ai_family == AF_INET) {
                     result = res;
                     break;
                 }
                 res = res->ai_next;
             }
 
-            if (result->ai_family == AF_INET)
-            {
+            if (result->ai_family == AF_INET) {
                 address.sin_port = htons(port);
                 address.sin_family = family = AF_INET;
                 address.sin_addr = ((struct sockaddr_in*)(result->ai_addr))->sin_addr;
@@ -160,9 +190,7 @@ int platform_network_connect(Network* n, char* hostname, int port)
 
             freeaddrinfo(result);
             break;
-        }
-        else
-        {
+        } else {
             platform_printf("failed to resolve hostname %s, rc = %d\n", hostname, rc);
         }
     } 
@@ -175,19 +203,27 @@ int platform_network_connect(Network* n, char* hostname, int port)
 			rc = connect(n->socket, (struct sockaddr*)&address, sizeof(address));
 	}
 
-    if (rc != 0)
-    {
+    if (rc != 0) {
         platform_printf("failed to connect to socket, rc = %d, errno = %d\n", rc, errno);
-        return rc;
     }
 
-    if (n->tls_enabled)
-    {
-        rc = tls_session_init(&n->tls_handle, n->socket, &n->tls_config);
-        if (rc != WM_SUCCESS)
-        {
-            platform_printf("failed to init tls session, rc = %d\n", rc);
-        }
+    return rc;
+}
+
+
+int platform_network_connect(Network* n, char* hostname, int port)
+{
+    int rc;
+
+    if (!n) {
+        platform_printf("%s: invalid network\n", __func__);
+        return -1;
+    }
+
+    rc = tcp_connect(n, hostname, port); 
+
+    if (!rc && n->tls_enabled) {
+        rc = tls_connect(n, hostname);
     }
 
 	return rc;
@@ -202,7 +238,19 @@ void platform_network_disconnect(Network* n)
         return;
     }
 
-    if (n->tls_enabled && n->tls_handle) tls_close(&n->tls_handle);
+    if (n->tls_enabled) {
+		if (n->tls_context) {
+            mbedtls_ssl_close_notify(n->tls_context);
+            wm_mbedtls_ssl_free(n->tls_context);
+        }
+        if (n->tls_config) wm_mbedtls_ssl_config_free(n->tls_config);
+        if (n->tls_cert.ca_chain) wm_mbedtls_free_cert(n->tls_cert.ca_chain);
+
+        n->tls_context = 0;
+        n->tls_config = 0;
+        n->tls_cert.ca_chain = 0;
+    }
+
     shutdown(n->socket, SHUT_RDWR);
 	close(n->socket);
 }
@@ -210,17 +258,23 @@ void platform_network_disconnect(Network* n)
 
 int platform_network_read(Network* n, unsigned char* buffer, int len, int timeout_ms)
 {
+    int rc;
+
     if (!n)
     {
         platform_printf("%s: invalid network\n", __func__);
         return -1;
     }
 
-	int rc = setsockopt(n->socket, SOL_SOCKET, SO_RCVTIMEO, (void*)&timeout_ms, sizeof timeout_ms);
-    if (rc != 0)
-    {
-        platform_printf("%s: failed to set socket option SO_RCVTIMEO, rc = %d\n", __func__, rc);
-        return -1;
+    if (!n->tls_enabled) {
+        rc = setsockopt(n->socket, SOL_SOCKET, SO_RCVTIMEO, (void*)&timeout_ms, sizeof timeout_ms);
+        if (rc != 0) {
+            platform_printf("%s: failed to set socket option SO_RCVTIMEO, rc = %d\n", __func__, rc);
+            return -1;
+        }
+    } else {
+        wm_mbedtls_reset_read_timer(n->tls_context);
+        wm_mbedtls_set_read_timeout(n->tls_context, timeout_ms);
     }
 
 	int bytes = 0;
@@ -228,8 +282,9 @@ int platform_network_read(Network* n, unsigned char* buffer, int len, int timeou
 	{
         if (!n->tls_enabled)
             rc = recv(n->socket, &buffer[bytes], (size_t)(len - bytes), 0);
-        else
-            rc = tls_recv(n->tls_handle, &buffer[bytes], (size_t)(len - bytes));
+        else {
+            rc = mbedtls_ssl_read(n->tls_context, &buffer[bytes], (size_t)(len - bytes));
+        }
 
         if (rc == 0)
         {
@@ -270,7 +325,7 @@ int platform_network_write(Network* n, unsigned char* buffer, int length, int ti
     if (!n->tls_enabled)
         rc = send(n->socket, buffer, length, 0);
     else
-        rc = tls_send(n->tls_handle, buffer, length);
+		rc = mbedtls_ssl_write(n->tls_context, buffer, length);
 
     //platform_printf("%s: send rc = %d\n", __func__, rc);
 
