@@ -271,8 +271,8 @@ static void evrythng_task()
     EvrythngSubThngProperty(evt_handle, thng_id, "property_2", 0, action_led_callback);
 
 
-    os_thread_create(&button1_thread, "button1_task", button_task, (void*)button_1, &button_stack, OS_PRIO_3);
-    os_thread_create(&button2_thread, "button2_task", button_task, (void*)button_2, &button_stack, OS_PRIO_3);
+    os_thread_create(&button1_thread, "button1_task", button_task, (void*)button_1, &button1_stack, OS_PRIO_3);
+    os_thread_create(&button2_thread, "button2_task", button_task, (void*)button_2, &button2_stack, OS_PRIO_3);
 
 exit:
     os_thread_self_complete(0);
