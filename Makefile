@@ -10,7 +10,7 @@ include $(PROJECT_ROOT)/config.mk
 include common.mk
 
 ifeq ($(BOARD),mw300)
-BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/wifi_defconfig/mw300_rd
+BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/mw300_rd
 else
 BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/$(BOARD)
 endif
