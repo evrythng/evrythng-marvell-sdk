@@ -23,7 +23,7 @@
 #include "tests.h"
 
 static os_thread_t app_thread;
-static os_thread_stack_define(app_stack, 16 * 1024);
+static os_thread_stack_define(app_stack, 6 * 1024);
 
 #define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
 #define MAX_DOWNLOAD_DATA 150

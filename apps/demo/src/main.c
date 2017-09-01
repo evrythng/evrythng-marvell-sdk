@@ -29,8 +29,9 @@ static os_thread_t button1_thread;
 static os_thread_t button2_thread;
 
 /* Buffer to be used as stack */
-static os_thread_stack_define(app_stack, 8 * 1024);
-static os_thread_stack_define(button_stack, 8 * 1024);
+static os_thread_stack_define(app_stack, 4 * 1024);
+static os_thread_stack_define(button1_stack, 1 * 1024);
+static os_thread_stack_define(button2_stack, 1 * 1024);
 
 #define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
 #define MAX_DOWNLOAD_DATA 150
@@ -261,7 +262,7 @@ static void evrythng_task()
     wmprintf("Connected\n\r");
 
     os_semaphore_create_counting(&button1_sem, "button1_sem", 1000, 0);
-    os_semaphore_create_counting(&button2_sem, "button1_sem", 1000, 0);
+    os_semaphore_create_counting(&button2_sem, "button2_sem", 1000, 0);
 
     EvrythngSubThngAction(evt_handle, thng_id, "_led1", 0, action_led_callback);
     EvrythngSubThngAction(evt_handle, thng_id, "_led2", 0, action_led_callback);
@@ -270,8 +271,8 @@ static void evrythng_task()
     EvrythngSubThngProperty(evt_handle, thng_id, "property_2", 0, action_led_callback);
 
 
-    os_thread_create(&button1_thread, "button1_task", button_task, (void*)button_1, &button_stack, OS_PRIO_3);
-    os_thread_create(&button2_thread, "button2_task", button_task, (void*)button_2, &button_stack, OS_PRIO_3);
+    os_thread_create(&button1_thread, "button1_task", button_task, (void*)button_1, &button1_stack, OS_PRIO_3);
+    os_thread_create(&button2_thread, "button2_task", button_task, (void*)button_2, &button2_stack, OS_PRIO_3);
 
 exit:
     os_thread_self_complete(0);

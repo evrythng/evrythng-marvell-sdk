@@ -1,9 +1,9 @@
---- a/Makefile  2016-12-05 15:59:10.827032711 +0300
-+++ b/Makefile	2016-12-05 16:00:24.423939022 +0300
-@@ -74,8 +74,7 @@
- subdir-y += sdk/external/cyassl
+--- a/Makefile	2017-04-06 15:08:08.122921077 +0300
++++ b/Makefile	2017-04-06 15:09:00.636079182 +0300
+@@ -73,8 +73,7 @@
  subdir-y += sdk/external/expat-2.1.0
  subdir-y += sdk/external/nghttp2
+ subdir-y += sdk/external/usb-host
 -subdir-$(evt-agent-y) += sdk/external/evrythng
 -subdir-$(aws-agent-y) += sdk/external/aws_iot
 +subdir-y += ../lib
