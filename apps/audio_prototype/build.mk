@@ -8,6 +8,7 @@ UAP_PROV_CONFIG_HTTPS_ENABLE=n
 exec-y += audio_prototype
 audio_prototype-objs-y   := src/main.c src/adc.c src/reset_prov_helper.c
 audio_prototype-cflags-y := -I$(d)/src
+audio_prototype-prebuilt-libs-y += -lm
 
 UAP_PROV_MDNS_ENABLE=y
 audio_prototype-objs-$(UAP_PROV_MDNS_ENABLE)   += src/mdns_helper.c
