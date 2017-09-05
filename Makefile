@@ -24,7 +24,7 @@ audio_prototype: wmsdk
 audio_prototype_clean:
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype clean
 
-audio_prototype_flashprog: demo
+audio_prototype_flashprog: audio_prototype
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
 	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/audio_prototype.bin
 

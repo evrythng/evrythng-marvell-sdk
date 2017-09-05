@@ -52,10 +52,6 @@
  * access the Webapp that is served by the Web Server. The Webapp has a wizard
  * that takes the users through the network provisioning steps
  *
- * 2. WPS Provisioning: Users press a button on the Access Point (AP) and a
- * button on this device. The WPS protocol is initiated which takes care of
- * transferring the network credentials to the device.
- *
  * Once network provisioning is successful, the network credentials are recorded
  * in the PSM (Persistent Storage Manager). From next bootup on wards, once the
  * WLAN subsystem is initialized, the application knows that the network
@@ -86,7 +82,7 @@
 /*-----------------------Global declarations----------------------*/
 
 appln_config_t appln_cfg = {
-	.ssid = "Marvell_Prov_Demo",
+	.ssid = "Audio_Sensing_Prototype",
 	.passphrase = "marvellwm",
 	.hostname = "provdemo",
 };
@@ -107,7 +103,7 @@ static int provisioned;
 int appln_config_init()
 {
 	/* Initialize service name for mdns */
-	snprintf(appln_cfg.servname, MAX_SRVNAME_LEN, "provdemo");
+	snprintf(appln_cfg.servname, MAX_SRVNAME_LEN, "audiosensor");
 	/* Initialize reset to provisioning push button settings */
 	appln_cfg.reset_prov_pb_gpio = board_button_2();
 	return 0;
@@ -375,6 +371,8 @@ void event_normal_connected(void *data)
 
 	iface_handle = net_get_mlan_handle();
 	hp_mdns_announce(iface_handle);
+
+    dbg("Ready for operation\n\r");
 }
 
 /* Event handler for AF_EVT_NORMAL_DISCONNECTED - Station interface

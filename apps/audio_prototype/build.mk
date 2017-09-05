@@ -22,8 +22,8 @@ audio_prototype-cflags-$(UAP_PROV_CONFIG_HTTPS_ENABLE) \
 	+= -DUAP_PROV_CONFIG_HTTPS_ENABLE
 endif
 
-# Enable for debuggin
-#audio_prototype-cflags-y += -DAPPCONFIG_DEBUG_ENABLE
+# Enable for debugging
+audio_prototype-cflags-y += -DAPPCONFIG_DEBUG_ENABLE
 
 audio_prototype-ftfs-y := audio_prototype.ftfs
 audio_prototype-ftfs-dir-y := $(d)/www
