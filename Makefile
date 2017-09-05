@@ -16,7 +16,17 @@ BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/$(BOARD)
 endif
 
 
-.PHONY: all demo demo_clean tests tests_clean clean 
+.PHONY: all audio_prototype demo demo_clean tests tests_clean clean 
+
+audio_prototype: wmsdk 
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype
+
+audio_prototype_clean:
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype clean
+
+audio_prototype_flashprog: demo
+	cd $(WMSDK_PATH)/tools/OpenOCD; \
+	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/audio_prototype.bin
 
 demo: wmsdk 
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/demo

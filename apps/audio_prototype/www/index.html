@@ -1,0 +1,35 @@
+<!DOCTYPE html> 
+<html>
+	<head> 
+		<title>Marvell Provisioning Demo</title> 
+		<meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1"> 
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="white" />
+        <link rel="stylesheet" href="jquery.mobile.css" />
+        <link rel="stylesheet" href="custom.css" />
+        <script src="jquery.js"></script>
+		<script src="jquery.mobile.js"></script>
+        <script src="common.js"></script>
+        <script src="prov.js"></script>
+        <script src="app.js"></script>
+	</head>
+
+	<body>
+    	<div data-role="page">
+			<div data-role="header" data-theme="b" data-position="fixed" id="header">
+				<a href="#" rel="external" id="home" data-role="button" data-transition="fade"
+					data-icon="home" data-iconpos="notext" class="ui-btn-left"></a>
+				<a href="#" rel="external" id="back" data-role="button" data-transition="fade"
+					data-icon="back" data-iconpos="notext" class="ui-btn-left"></a>
+				<h3 id="title"></h3>
+			</div>
+	    	<div data-role="content" data-theme="b" id="page_content">
+			</div>
+		</div>
+	</body>
+	<script type='text/javascript'>
+		pageLoad();
+	</script>
+</html>
+ 
