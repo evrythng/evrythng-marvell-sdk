@@ -129,35 +129,11 @@ void critical_error(int crit_errno, void *data)
 static int appln_httpd_with_fs_start()
 {
 	int ret;
-#ifdef UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE
-	ret = app_httpd_only_start();
-	if (ret != WM_SUCCESS) {
-		dbg("Error: Failed to start HTTPD");
-		return -WM_FAIL;
-	}
-	app_ftfs_init(ftfs_api_version, ftfs_part_name, &fs);
-
-	/* App developer can change the default provisioning key.
-	 * Ideally, a unique provisioning key will be used for each device.
-	 * This should be programmed into the device at the time of
-	 * manufacturing and should be read from the appropriate flash partition
-	 * and setup in here.
-	 */
-#define PROV_KEY "device_key"
-	ret = register_secure_provisioning_web_handlers((uint8_t *)PROV_KEY,
-						sizeof(PROV_KEY) - 1,
-						app_sta_save_network_and_start);
-	if (ret != WM_SUCCESS) {
-		dbg("Error: Failed to register secure provisioning pin");
-		return -WM_FAIL;
-	}
-#else
 	ret = app_httpd_with_fs_start(ftfs_api_version, ftfs_part_name, &fs);
 	if (ret != WM_SUCCESS) {
 		dbg("Failed to start HTTPD");
 		return -WM_FAIL;
 	}
-#endif /* UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE */
 	return WM_SUCCESS;
 }
 
@@ -230,11 +206,7 @@ void event_wlan_init_done(void *data)
 		char *domain_names[] = {"provdemo.net", "www.provdemo.net",
 					NULL};
 		dhcp_enable_dns_server(domain_names);
-#ifdef UAP_PROV_CONFIG_MICRO_AP_SECURITY_ENABLE
-		app_uap_start_with_dhcp(appln_cfg.ssid, appln_cfg.passphrase);
-#else
 		app_uap_start_with_dhcp(appln_cfg.ssid, NULL);
-#endif /* UAP_PROV_CONFIG_MICRO_AP_SECURITY_ENABLE */
 	}
 
 	if (provisioned)
@@ -335,9 +307,6 @@ void event_uap_started(void *data)
 
 	if (!provisioned) {
 		dbg("Starting provisioning");
-#ifdef UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE
-		wscan_periodic_start();
-#endif /* UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE */
 		app_provisioning_start(PROVISIONING_WLANNW);
 	}
 	dbg("Event: Micro-AP Started");
@@ -359,11 +328,7 @@ void event_normal_reset_prov(void *data)
 		char *domain_names[] = {"provdemo.net", "www.provdemo.net",
 					NULL};
 		dhcp_enable_dns_server(domain_names);
-#ifdef UAP_PROV_CONFIG_MICRO_AP_SECURITY_ENABLE
-		app_uap_start_with_dhcp(appln_cfg.ssid, appln_cfg.passphrase);
-#else
 		app_uap_start_with_dhcp(appln_cfg.ssid, NULL);
-#endif /* UAP_PROV_CONFIG_MICRO_AP_SECURITY_ENABLE */
 	} else {
 		app_provisioning_start(PROVISIONING_WLANNW);
 	}
@@ -372,9 +337,6 @@ void event_normal_reset_prov(void *data)
 void event_prov_done(void *data)
 {
 	hp_configure_reset_prov_pushbutton();
-#ifdef UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE
-	wscan_periodic_stop();
-#endif /* UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE */
 	app_provisioning_stop();
 	dbg("Provisioning successful");
 }
