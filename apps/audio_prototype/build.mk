@@ -6,7 +6,7 @@ UAP_PROV_CONFIG_APP_LEVEL_SECURITY_ENABLE=n
 UAP_PROV_CONFIG_HTTPS_ENABLE=n
 
 exec-y += audio_prototype
-audio_prototype-objs-y   := src/main.c src/reset_prov_helper.c
+audio_prototype-objs-y   := src/main.c src/adc.c src/reset_prov_helper.c
 audio_prototype-cflags-y := -I$(d)/src
 
 UAP_PROV_MDNS_ENABLE=y

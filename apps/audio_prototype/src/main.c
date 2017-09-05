@@ -60,6 +60,8 @@
  *
  */
 #include <wm_os.h>
+#include <wmtime.h>
+#include <wmsdk.h>
 #include <app_framework.h>
 #include <partition.h>
 #include <appln_cb.h>
@@ -92,6 +94,11 @@ char *ftfs_part_name = "ftfs";
 
 static uint8_t first_time = 1;
 struct fs *fs;
+
+/* Thread handle */
+static os_thread_t adc_thread;
+/* Buffer to be used as stack */
+static os_thread_stack_define(adc_thread_stack, 12 * 1024);
 
 /*-----------------------Global declarations----------------------*/
 static int provisioned;
@@ -351,6 +358,8 @@ void event_normal_connecting(void *data)
 	led_fast_blink(board_led_2());
 }
 
+extern void adc_thread_routine(os_thread_arg_t);
+
 /* Event: AF_EVT_NORMAL_CONNECTED
  *
  * Station interface connected to home AP.
@@ -372,7 +381,29 @@ void event_normal_connected(void *data)
 	iface_handle = net_get_mlan_handle();
 	hp_mdns_announce(iface_handle);
 
-    dbg("Ready for operation\n\r");
+    dbg("Ready for operation");
+
+	if (!adc_thread) {
+		/* set system time */
+        /* TODO */
+
+		/* create main thread */
+		int ret = os_thread_create(&adc_thread,
+			/* thread name */
+			"adc_thread",
+			/* entry function */
+			adc_thread_routine,
+			/* argument */
+			0,
+			/* stack */
+			&adc_thread_stack,
+			/* priority */
+			OS_PRIO_3);
+		if (ret != WM_SUCCESS) {
+			dbg("Failed to start adc_thread: %d", ret);
+			return;
+		}
+	}
 }
 
 /* Event handler for AF_EVT_NORMAL_DISCONNECTED - Station interface
