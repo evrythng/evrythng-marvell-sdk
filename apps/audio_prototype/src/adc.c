@@ -9,14 +9,21 @@
 #include <lowlevel_drivers.h>
 #include "arm_math.h"
 #include "arm_const_structs.h"
+#include <led_indicator.h>
 
 
 #define BIT_RESOLUTION_FACTOR 32768	/* For 16 bit resolution (2^15-1) */
 #define VMAX_IN_mV	1800  /* Max input voltage in milliVolts */
 #define fft_size 256
+#define BASE_FREQUENCIES_NUM 10
 
-static float32_t cmplxInOut[fft_size*2];
-static float32_t magOutput[fft_size];
+static float32_t cmplx_in_out[fft_size*2];
+static float32_t mag_out[fft_size];
+
+static int magnitude_stat_cnt;
+static float magnitude_stats[fft_size/2];
+static float magnitude_weights[fft_size/2];
+
 static mdev_t *adc_dev;
 
 void adc_thread_routine(os_thread_arg_t data)
@@ -52,8 +59,9 @@ void adc_thread_routine(os_thread_arg_t data)
 	adc_dev = adc_drv_open(ADC0_ID, ADC_CH0);
 
     uint32_t us, accum_us, accum_cnt;
+    bool button_was_pressed = false;
 
-    while (1) {
+    while (true) {
 
         accum_us = 0;
         accum_cnt = 0;
@@ -62,9 +70,9 @@ void adc_thread_routine(os_thread_arg_t data)
             us = os_get_usec_counter();
 
             // Real value
-            cmplxInOut[i] = adc_drv_result(adc_dev);
+            cmplx_in_out[i] = adc_drv_result(adc_dev);
             // Im value
-            cmplxInOut[i+1] = 0;
+            cmplx_in_out[i+1] = 0;
 
             us = os_get_usec_counter() - us;
             if (us < 5000) {//filter out overflows
@@ -73,9 +81,9 @@ void adc_thread_routine(os_thread_arg_t data)
             }
 
             /*
-               float32_t result = (cmplxInOut[i] / BIT_RESOLUTION_FACTOR) * (VMAX_IN_mV * 2);
+               float32_t result = (cmplx_in_out[i] / BIT_RESOLUTION_FACTOR) * (VMAX_IN_mV * 2);
                wmprintf("Iteration %d: count %.2f - %d.%d mV, tool %u us\r\n",
-               i, cmplxInOut[i],
+               i, cmplx_in_out[i],
                wm_int_part_of(result),
                wm_frac_part_of(result, 2),
                us);
@@ -88,23 +96,74 @@ void adc_thread_routine(os_thread_arg_t data)
 
         /* Process the data through the CFFT/CIFFT module */
         arm_cfft_f32(&arm_cfft_sR_f32_len256, 
-                cmplxInOut, 
+                cmplx_in_out, 
                 0 /* inverse */, 
                 1 /* but inverse ? */);
 
         /* Process the data through the Complex Magnitude Module for
            calculating the magnitude at each bin */
-        arm_cmplx_mag_f32(cmplxInOut, magOutput, fft_size);
+        arm_cmplx_mag_f32(cmplx_in_out, mag_out, fft_size);
+
 
         /* first half of magnitudes is useable, fft_size/2 */
 
-        /* Calculates maxValue and returns corresponding BIN value, ignoring bin[0] */
-        float maxMagnitude; uint32_t maxIndex;
-        arm_max_f32(&magOutput[1], (fft_size/2)-1, &maxMagnitude, &maxIndex);
-        dbg("max mag: %8.2f, max idx: %3u, freq: %8.2f, sampling freq: %5.2f", 
-                maxMagnitude, maxIndex, 
-                (maxIndex*sampling_freq_hz/2.0)/(fft_size/2.0),
-                sampling_freq_hz);
+        /* Calculate maxValue and returns corresponding BIN value, ignoring bin[0] */
+        float max_magnitude; 
+        uint32_t max_bin_index; 
+        uint16_t max_bins[BASE_FREQUENCIES_NUM];
+        float match_coef = 0;
+
+        magnitude_stat_cnt++;
+
+        /* filter out first 8 bins */
+        for (int i = 0; i < 8; i++)
+            mag_out[i] = 0;
+        for (int i = 64; i < fft_size; i++)
+            mag_out[i] = 0;
+
+        for (int i = 0; i < BASE_FREQUENCIES_NUM; i++) {
+
+            arm_max_f32(mag_out, fft_size/2, &max_magnitude, &max_bin_index);
+            mag_out[max_bin_index] = 0; //eliminate 'last' max frequency 
+
+            max_bins[i] = max_bin_index;
+            match_coef += magnitude_weights[max_bin_index];
+
+            /* collect statistics */
+            magnitude_stats[max_bin_index] += 1.0 / powf(2, i+1);
+
+            wmprintf("%3d: %7.2f ", 
+                    max_bin_index, 
+                    (max_bin_index * sampling_freq_hz / 2.0) / (fft_size / 2.0));
+        }
+        wmprintf(" match = %2.2f\n\r", match_coef);
+        if (match_coef > 0.6)
+            led_fast_blink(board_led_1());
+        else
+            led_off(board_led_1());
+
+        /* zero stats, collect statistics if button pressed */
+        if (board_button_pressed(board_button_1())) {
+            if (!button_was_pressed) {
+                button_was_pressed = true;
+                memset(magnitude_stats, 0, sizeof magnitude_stats);
+                memset(magnitude_weights, 0, sizeof magnitude_weights);
+                magnitude_stat_cnt = 0;
+            }
+        } else {
+            if (button_was_pressed) {
+                button_was_pressed = false;
+                wmprintf("------------------------------------------- %d\n\r", magnitude_stat_cnt);
+                /* calculate new weights */
+                for (int i = 0; i < fft_size/2; i++) {
+                    magnitude_weights[i] = (magnitude_stats[i] * 1.0) / (magnitude_stat_cnt * 1.0);
+                    if (magnitude_weights[i] > 0)
+                        wmprintf("bin %d, cnt: %f, coef %2.2f\n\r", 
+                                i, magnitude_stats[i], magnitude_weights[i]);
+                }
+                wmprintf("\n\r-------------------------------------------\n\r");
+            }
+        }
     }
 
 	adc_drv_close(adc_dev);
