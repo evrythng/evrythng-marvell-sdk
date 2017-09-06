@@ -7,12 +7,16 @@
 #include <mdev_adc.h>
 #include <mdev_pinmux.h>
 #include <lowlevel_drivers.h>
+#include "arm_math.h"
+#include "arm_const_structs.h"
 
-#define SAMPLES	256
+
 #define BIT_RESOLUTION_FACTOR 32768	/* For 16 bit resolution (2^15-1) */
 #define VMAX_IN_mV	1800  /* Max input voltage in milliVolts */
+#define fft_size 256
 
-static uint16_t buffer[SAMPLES];
+static float32_t cmplxInOut[fft_size*2];
+static float32_t magOutput[fft_size];
 static mdev_t *adc_dev;
 
 void adc_thread_routine(os_thread_arg_t data)
@@ -47,24 +51,60 @@ void adc_thread_routine(os_thread_arg_t data)
 
 	adc_dev = adc_drv_open(ADC0_ID, ADC_CH0);
 
-    uint32_t us = 0;
+    uint32_t us, accum_us, accum_cnt;
 
     while (1) {
-        for (i = 0; i < SAMPLES; i++) {
+
+        accum_us = 0;
+        accum_cnt = 0;
+            
+        for (i = 0; i < fft_size*2; i+=2) {
             us = os_get_usec_counter();
-            buffer[i] = adc_drv_result(adc_dev);
+
+            // Real value
+            cmplxInOut[i] = adc_drv_result(adc_dev);
+            // Im value
+            cmplxInOut[i+1] = 0;
+
             us = os_get_usec_counter() - us;
+            if (us < 5000) {//filter out overflows
+                accum_us += us;
+                accum_cnt++;
+            }
 
-            float result = ((float)buffer[i] / BIT_RESOLUTION_FACTOR) *
-                VMAX_IN_mV * ((float)1/(float)(config.adcGainSel != 0 ?
-                            config.adcGainSel : 0.5));
-
-            wmprintf("Iteration %d: count %d - %d.%d mV, tool %u us, frequency\r\n",
-                    i, buffer[i],
-                    wm_int_part_of(result),
-                    wm_frac_part_of(result, 2),
-                    us);
+            /*
+               float32_t result = (cmplxInOut[i] / BIT_RESOLUTION_FACTOR) * (VMAX_IN_mV * 2);
+               wmprintf("Iteration %d: count %.2f - %d.%d mV, tool %u us\r\n",
+               i, cmplxInOut[i],
+               wm_int_part_of(result),
+               wm_frac_part_of(result, 2),
+               us);
+               */
         }
+
+        /* calculate mean time used to sample */
+        accum_us /= accum_cnt;
+        float sampling_freq_hz = 1000000/accum_us;
+
+        /* Process the data through the CFFT/CIFFT module */
+        arm_cfft_f32(&arm_cfft_sR_f32_len256, 
+                cmplxInOut, 
+                0 /* inverse */, 
+                1 /* but inverse ? */);
+
+        /* Process the data through the Complex Magnitude Module for
+           calculating the magnitude at each bin */
+        arm_cmplx_mag_f32(cmplxInOut, magOutput, fft_size);
+
+        /* first half of magnitudes is useable, fft_size/2 */
+
+        /* Calculates maxValue and returns corresponding BIN value, ignoring bin[0] */
+        float maxMagnitude; uint32_t maxIndex;
+        arm_max_f32(&magOutput[1], (fft_size/2)-1, &maxMagnitude, &maxIndex);
+        dbg("max mag: %8.2f, max idx: %3u, freq: %8.2f, sampling freq: %5.2f", 
+                maxMagnitude, maxIndex, 
+                (maxIndex*sampling_freq_hz/2.0)/(fft_size/2.0),
+                sampling_freq_hz);
     }
 
 	adc_drv_close(adc_dev);
