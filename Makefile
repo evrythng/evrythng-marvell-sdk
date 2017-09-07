@@ -19,7 +19,7 @@ endif
 .PHONY: all audio_prototype demo demo_clean tests tests_clean clean 
 
 audio_prototype: wmsdk 
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype XIP=1
 
 audio_prototype_clean:
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype clean

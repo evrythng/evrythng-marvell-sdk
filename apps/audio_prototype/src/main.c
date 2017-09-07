@@ -362,6 +362,7 @@ void event_normal_connecting(void *data)
 }
 
 extern void adc_thread_routine(os_thread_arg_t);
+extern int evt_connect();
 
 /* Event: AF_EVT_NORMAL_CONNECTED
  *
@@ -384,13 +385,16 @@ void event_normal_connected(void *data)
 	iface_handle = net_get_mlan_handle();
 	hp_mdns_announce(iface_handle);
 
-    set_device_time();
-
     dbg("Ready for operation");
 
 	if (!adc_thread) {
-		/* set system time */
-        /* TODO */
+
+        set_device_time();
+
+        if (evt_connect() != 0) {
+            dbg("failed to establish connection to evt cloud");
+            return;
+        }
 
 		/* create main thread */
 		int ret = os_thread_create(&adc_thread,
