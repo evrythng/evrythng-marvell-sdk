@@ -74,6 +74,7 @@ int evt_connect()
     EvrythngInitHandle(&evt_handle);
     EvrythngSetUrl(evt_handle, "ssl://mqtt.evrythng.com:443");
     EvrythngSetKey(evt_handle, api_key);
+    EvrythngSetThreadPriority(evt_handle, OS_PRIO_3);
     EvrythngSetLogCallback(evt_handle, log_callback);
     EvrythngSetConnectionCallbacks(evt_handle, on_connection_lost, on_connection_restored);
 
