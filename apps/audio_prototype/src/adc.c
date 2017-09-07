@@ -12,18 +12,21 @@
 #include <led_indicator.h>
 
 
-#define BIT_RESOLUTION_FACTOR 32768	/* For 16 bit resolution (2^15-1) */
-#define VMAX_IN_mV	1800  /* Max input voltage in milliVolts */
 #define fft_size 256
-#define BASE_FREQUENCIES_NUM 8
+#define half_fft_size (fft_size/2)
+#define MATCH_THRESHOLD .4
+#define BASE_FREQUENCY_THRESHOLD .6
 
+static void correlate_and_match();
+static void check_and_build_model();
+static void read_raw_samples();
+    
 static float32_t cmplx_in_out[fft_size*2];
-static float32_t mag_out[fft_size];
+static float32_t magnitude_out[fft_size];
 static uint32_t base_frequencies_cnt;
 
-static int magnitude_stat_cnt;
-static float magnitude_stats[fft_size/2];
-static float32_t magnitude_weights[fft_size/2];
+static float magnitude_stats[half_fft_size];
+static float32_t magnitude_means[half_fft_size];
 
 static mdev_t *adc_dev;
 
@@ -59,41 +62,9 @@ void adc_thread_routine(os_thread_arg_t data)
 
 	adc_dev = adc_drv_open(ADC0_ID, ADC_CH0);
 
-    uint32_t us, accum_us, accum_cnt;
-    bool button_was_pressed = false;
-
     while (true) {
 
-        accum_us = 0;
-        accum_cnt = 0;
-            
-        for (i = 0; i < fft_size*2; i+=2) {
-            us = os_get_usec_counter();
-
-            // Real value
-            cmplx_in_out[i] = adc_drv_result(adc_dev);
-            // Im value
-            cmplx_in_out[i+1] = 0;
-
-            us = os_get_usec_counter() - us;
-            if (us < 5000) {//filter out overflows
-                accum_us += us;
-                accum_cnt++;
-            }
-
-            /*
-               float32_t result = (cmplx_in_out[i] / BIT_RESOLUTION_FACTOR) * (VMAX_IN_mV * 2);
-               wmprintf("Iteration %d: count %.2f - %d.%d mV, tool %u us\r\n",
-               i, cmplx_in_out[i],
-               wm_int_part_of(result),
-               wm_frac_part_of(result, 2),
-               us);
-               */
-        }
-
-        /* calculate mean time used to sample */
-        accum_us /= accum_cnt;
-        float sampling_freq_hz = 1000000/accum_us;
+        read_raw_samples();
 
         /* Process the data through the CFFT/CIFFT module */
         arm_cfft_f32(&arm_cfft_sR_f32_len256, 
@@ -103,97 +74,130 @@ void adc_thread_routine(os_thread_arg_t data)
 
         /* Process the data through the Complex Magnitude Module for
            calculating the magnitude at each bin */
-        arm_cmplx_mag_f32(cmplx_in_out, mag_out, fft_size);
+        arm_cmplx_mag_f32(cmplx_in_out, magnitude_out, fft_size);
 
+        correlate_and_match();
 
-        /* first half of magnitudes is useable, fft_size/2 */
-
-        /* Calculate maxValue and returns corresponding BIN value, ignoring bin[0] */
-        float max_magnitude; 
-        uint32_t max_bin_index; 
-        float match_coef = 0;
-
-        magnitude_stat_cnt++;
-
-        /* filter out first 8 bins */
-        /*
-        for (int i = 0; i < 8; i++)
-            mag_out[i] = 0;
-        for (int i = 64; i < fft_size; i++)
-            mag_out[i] = 0;
-        */
-        mag_out[0] = 0;
-
-        for (int i = 0; i < fft_size/2; i++) {
-
-            //arm_max_f32(mag_out, fft_size/2, &max_magnitude, &max_bin_index);
-            //mag_out[max_bin_index] = 0; //eliminate 'last' max frequency 
-
-            float correlation = 0;
-            if (magnitude_weights[i] > 0) {
-                float tmp = mag_out[i] / magnitude_weights[i];
-                correlation = tmp > 1 ? 1.0/tmp : tmp;
-                wmprintf("%7.2f ", correlation);
-            }
-            match_coef += correlation;
-
-            /* collect statistics */
-            magnitude_stats[i] += mag_out[i];
-
-            /*
-            wmprintf("%3d: %7.2f ", 
-                    max_bin_index, 
-                    (max_bin_index * sampling_freq_hz / 2.0) / (fft_size / 2.0));
-                    */
-        }
-
-        wmprintf(" match = %2.2f\n\r", match_coef/base_frequencies_cnt);
-        if (match_coef/base_frequencies_cnt > .4)
-            led_fast_blink(board_led_1());
-        else
-            led_off(board_led_1());
-
-
-        /* zero stats, collect statistics if button pressed */
-        if (board_button_pressed(board_button_1())) {
-            if (!button_was_pressed) {
-                button_was_pressed = true;
-                memset(magnitude_stats, 0, sizeof magnitude_stats);
-                memset(magnitude_weights, 0, sizeof magnitude_weights);
-                magnitude_stat_cnt = 0;
-                base_frequencies_cnt = 0;
-            }
-        } else {
-
-            if (button_was_pressed) {
-                button_was_pressed = false;
-
-                wmprintf("------------------------------------------- %d\n\r", magnitude_stat_cnt);
-
-                for (int i = 0; i < fft_size/2; i++) {
-                    magnitude_weights[i] = (magnitude_stats[i] * 1.0) / (magnitude_stat_cnt * 1.0);
-                }
-
-                float32_t m_mag; uint32_t m_index;
-                arm_max_f32(magnitude_weights, fft_size/2, &m_mag, &m_index);
-
-                for (int i = 0; i < fft_size/2; i++) {
-                    if (magnitude_weights[i] / m_mag < 0.7)
-                        magnitude_weights[i] = 0;
-                    else {
-                        base_frequencies_cnt++;
-                        wmprintf("bin %d, mean %2.2f\n\r", 
-                                i, magnitude_weights[i]);
-                    }
-                }
-                wmprintf("\n\r------------------------------------------- base frequencies = %d\n\r", base_frequencies_cnt);
-            }
-        }
+        check_and_build_model();
     }
+
+    /* should never get here */
 
 	adc_drv_close(adc_dev);
 	adc_drv_deinit(ADC0_ID);
 
 exit_thread:
 	os_thread_self_complete(NULL);
+}
+
+
+void read_raw_samples() 
+{
+    uint32_t us = 0, 
+             accum_us = 0, 
+             accum_cnt = 0;
+
+    for (int i = 0; i < fft_size*2; i+=2) {
+
+        us = os_get_usec_counter();
+
+        // Real value
+        cmplx_in_out[i] = adc_drv_result(adc_dev);
+        // Im value
+        cmplx_in_out[i+1] = 0;
+
+        us = os_get_usec_counter() - us;
+        if (us < 5000) { //filter out overflows
+            accum_us += us;
+            accum_cnt++;
+        }
+    }
+
+    /* calculate mean time used to sample */
+    accum_us /= accum_cnt;
+    float sampling_freq_hz = 1000000/accum_us;
+}
+
+
+void correlate_and_match() 
+{
+    float match_coef = 0;
+
+    /* 
+     * the very first bin contains signal power
+     * filter it out
+     */
+    magnitude_out[0] = 0;
+
+    /* first half of magnitudes is useable, half_fft_size */
+
+    for (int i = 0; i < half_fft_size; i++) {
+
+        float correlation = 0;
+        if (magnitude_means[i] > 0) {
+            float tmp = magnitude_out[i] / magnitude_means[i];
+            correlation = tmp > 1 ? 1.0/tmp : tmp;
+            wmprintf("%7.2f ", correlation);
+        }
+        match_coef += correlation;
+
+        /* collect statistics */
+        magnitude_stats[i] += magnitude_out[i];
+
+#if 0
+        wmprintf("%3d: %7.2f ", 
+                max_bin_index, 
+                (max_bin_index * sampling_freq_hz / 2.0) / (half_fft_size));
+#endif
+    }
+
+    wmprintf(" match = %2.2f\n\r", match_coef/base_frequencies_cnt);
+
+    if (match_coef/base_frequencies_cnt > MATCH_THRESHOLD)
+        led_fast_blink(board_led_1());
+    else
+        led_off(board_led_1());
+}
+
+
+void check_and_build_model() 
+{
+    static bool button_was_pressed;
+    static int magnitude_stat_cnt;
+
+    magnitude_stat_cnt++;
+
+    /* zero stats, collect statistics if button pressed */
+    if (board_button_pressed(board_button_1())) {
+        if (!button_was_pressed) {
+            button_was_pressed = true;
+            memset(magnitude_stats, 0, sizeof magnitude_stats);
+            memset(magnitude_means, 0, sizeof magnitude_means);
+            magnitude_stat_cnt = 0;
+            base_frequencies_cnt = 0;
+        }
+    } else {
+        if (button_was_pressed) {
+            button_was_pressed = false;
+
+            wmprintf("------------------------------------------- %d\n\r", magnitude_stat_cnt);
+
+            for (int i = 0; i < half_fft_size; i++) {
+                magnitude_means[i] = (magnitude_stats[i] * 1.0) / magnitude_stat_cnt;
+            }
+
+            float32_t m_mag; uint32_t m_index;
+            arm_max_f32(magnitude_means, half_fft_size, &m_mag, &m_index);
+
+            for (int i = 0; i < half_fft_size; i++) {
+                if (magnitude_means[i] / m_mag < BASE_FREQUENCY_THRESHOLD)
+                    magnitude_means[i] = 0;
+                else {
+                    base_frequencies_cnt++;
+                    wmprintf("[bin %d: mean %.2f] ", i, magnitude_means[i]);
+                }
+            }
+            wmprintf("\n\r------------------------------------------- base frequencies = %d\n\r", base_frequencies_cnt);
+        }
+    }
 }
