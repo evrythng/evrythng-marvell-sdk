@@ -15,14 +15,15 @@
 #define BIT_RESOLUTION_FACTOR 32768	/* For 16 bit resolution (2^15-1) */
 #define VMAX_IN_mV	1800  /* Max input voltage in milliVolts */
 #define fft_size 256
-#define BASE_FREQUENCIES_NUM 10
+#define BASE_FREQUENCIES_NUM 8
 
 static float32_t cmplx_in_out[fft_size*2];
 static float32_t mag_out[fft_size];
+static uint32_t base_frequencies_cnt;
 
 static int magnitude_stat_cnt;
 static float magnitude_stats[fft_size/2];
-static float magnitude_weights[fft_size/2];
+static float32_t magnitude_weights[fft_size/2];
 
 static mdev_t *adc_dev;
 
@@ -110,37 +111,48 @@ void adc_thread_routine(os_thread_arg_t data)
         /* Calculate maxValue and returns corresponding BIN value, ignoring bin[0] */
         float max_magnitude; 
         uint32_t max_bin_index; 
-        uint16_t max_bins[BASE_FREQUENCIES_NUM];
         float match_coef = 0;
 
         magnitude_stat_cnt++;
 
         /* filter out first 8 bins */
+        /*
         for (int i = 0; i < 8; i++)
             mag_out[i] = 0;
         for (int i = 64; i < fft_size; i++)
             mag_out[i] = 0;
+        */
+        mag_out[0] = 0;
 
-        for (int i = 0; i < BASE_FREQUENCIES_NUM; i++) {
+        for (int i = 0; i < fft_size/2; i++) {
 
-            arm_max_f32(mag_out, fft_size/2, &max_magnitude, &max_bin_index);
-            mag_out[max_bin_index] = 0; //eliminate 'last' max frequency 
+            //arm_max_f32(mag_out, fft_size/2, &max_magnitude, &max_bin_index);
+            //mag_out[max_bin_index] = 0; //eliminate 'last' max frequency 
 
-            max_bins[i] = max_bin_index;
-            match_coef += magnitude_weights[max_bin_index];
+            float correlation = 0;
+            if (magnitude_weights[i] > 0) {
+                float tmp = mag_out[i] / magnitude_weights[i];
+                correlation = tmp > 1 ? 1.0/tmp : tmp;
+                wmprintf("%7.2f ", correlation);
+            }
+            match_coef += correlation;
 
             /* collect statistics */
-            magnitude_stats[max_bin_index] += 1.0 / powf(2, i+1);
+            magnitude_stats[i] += mag_out[i];
 
+            /*
             wmprintf("%3d: %7.2f ", 
                     max_bin_index, 
                     (max_bin_index * sampling_freq_hz / 2.0) / (fft_size / 2.0));
+                    */
         }
-        wmprintf(" match = %2.2f\n\r", match_coef);
-        if (match_coef > 0.6)
+
+        wmprintf(" match = %2.2f\n\r", match_coef/base_frequencies_cnt);
+        if (match_coef/base_frequencies_cnt > .4)
             led_fast_blink(board_led_1());
         else
             led_off(board_led_1());
+
 
         /* zero stats, collect statistics if button pressed */
         if (board_button_pressed(board_button_1())) {
@@ -149,19 +161,32 @@ void adc_thread_routine(os_thread_arg_t data)
                 memset(magnitude_stats, 0, sizeof magnitude_stats);
                 memset(magnitude_weights, 0, sizeof magnitude_weights);
                 magnitude_stat_cnt = 0;
+                base_frequencies_cnt = 0;
             }
         } else {
+
             if (button_was_pressed) {
                 button_was_pressed = false;
+
                 wmprintf("------------------------------------------- %d\n\r", magnitude_stat_cnt);
-                /* calculate new weights */
+
                 for (int i = 0; i < fft_size/2; i++) {
                     magnitude_weights[i] = (magnitude_stats[i] * 1.0) / (magnitude_stat_cnt * 1.0);
-                    if (magnitude_weights[i] > 0)
-                        wmprintf("bin %d, cnt: %f, coef %2.2f\n\r", 
-                                i, magnitude_stats[i], magnitude_weights[i]);
                 }
-                wmprintf("\n\r-------------------------------------------\n\r");
+
+                float32_t m_mag; uint32_t m_index;
+                arm_max_f32(magnitude_weights, fft_size/2, &m_mag, &m_index);
+
+                for (int i = 0; i < fft_size/2; i++) {
+                    if (magnitude_weights[i] / m_mag < 0.7)
+                        magnitude_weights[i] = 0;
+                    else {
+                        base_frequencies_cnt++;
+                        wmprintf("bin %d, mean %2.2f\n\r", 
+                                i, magnitude_weights[i]);
+                    }
+                }
+                wmprintf("\n\r------------------------------------------- base frequencies = %d\n\r", base_frequencies_cnt);
             }
         }
     }
