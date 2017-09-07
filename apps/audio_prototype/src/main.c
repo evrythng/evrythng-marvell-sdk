@@ -74,12 +74,15 @@
 #include <mdns_helper.h>
 #include <reset_prov_helper.h>
 #include <httpd.h>
+#include <httpc.h>
 #include <ftfs.h>
 #include <led_indicator.h>
 #include <board.h>
 #include <dhcp-server.h>
 #include <mdev_gpio.h>
 #include <critical_error.h>
+
+static void set_device_time();
 
 /*-----------------------Global declarations----------------------*/
 
@@ -381,6 +384,8 @@ void event_normal_connected(void *data)
 	iface_handle = net_get_mlan_handle();
 	hp_mdns_announce(iface_handle);
 
+    set_device_time();
+
     dbg("Ready for operation");
 
 	if (!adc_thread) {
@@ -503,6 +508,60 @@ static void modules_init()
 
 	return;
 }
+
+#define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
+#define MAX_DOWNLOAD_DATA 150
+#define MAX_URL_LEN 128
+
+void set_device_time()
+{
+	http_session_t handle;
+	http_resp_t *resp = NULL;
+	char buf[MAX_DOWNLOAD_DATA];
+	int64_t timestamp, offset;
+	int size = 0;
+	int status = 0;
+	char url_name[MAX_URL_LEN];
+
+	memset(url_name, 0, sizeof(url_name));
+	strncpy(url_name, EVRYTHNG_GET_TIME_URL, strlen(EVRYTHNG_GET_TIME_URL));
+
+	dbg("Get time from : %s", url_name);
+	status = httpc_get(url_name, &handle, &resp, NULL);
+	if (status != WM_SUCCESS) {
+		dbg("Getting URL failed");
+		return;
+	}
+	size = http_read_content(handle, buf, MAX_DOWNLOAD_DATA);
+	if (size <= 0) {
+		dbg("Reading time failed\r\n");
+		goto out_time;
+	}
+
+	jobj_t json_obj;
+	if (json_parse_start(&json_obj, buf, size) != WM_SUCCESS) {
+		dbg("Wrong json string\r\n");
+		goto out_time;
+	}
+
+	if (json_get_val_int64(&json_obj, "timestamp", &timestamp) == WM_SUCCESS) {
+		if (json_get_val_int64(&json_obj, "offset", &offset)
+		    != WM_SUCCESS) {
+			offset = 0;
+		}
+		timestamp = timestamp + offset;
+	}
+	wmtime_time_set_posix(timestamp/1000);
+
+    json_parse_stop(&json_obj);
+
+    dbg("Setting time done");
+
+out_time:
+	http_close_session(&handle);
+	return;
+}
+
 
 int main()
 {
