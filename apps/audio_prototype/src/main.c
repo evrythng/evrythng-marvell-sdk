@@ -362,7 +362,9 @@ void event_normal_connecting(void *data)
 }
 
 extern void adc_thread_routine(os_thread_arg_t);
+extern void enqueue_in_use_property_update(bool);
 extern int evt_connect();
+extern int evt_init();
 
 /* Event: AF_EVT_NORMAL_CONNECTED
  *
@@ -391,10 +393,19 @@ void event_normal_connected(void *data)
 
         set_device_time();
 
+        if (evt_init() != 0) {
+            dbg("failed to read evt credentials");
+            return;
+        }
+
+#if 0
         if (evt_connect() != 0) {
             dbg("failed to establish connection to evt cloud");
             return;
         }
+#else
+        enqueue_in_use_property_update(false);
+#endif
 
 		/* create main thread */
 		int ret = os_thread_create(&adc_thread,

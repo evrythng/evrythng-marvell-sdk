@@ -14,19 +14,41 @@
 
 #define fft_size 256
 #define half_fft_size (fft_size/2)
-#define MATCH_THRESHOLD .4
+#define MATCH_THRESHOLD .45
 #define BASE_FREQUENCY_THRESHOLD .6
+#define DETECTION_MIN_TIME 1500
+#define DETECTION_RELEASE_TIME 3000
+#define SPURIOUS_DETECTION_RELEASE_TIME 300
 
-static void correlate_and_match();
+static void correlate_and_match(float* match_coef);
 static void check_and_build_model();
 static void read_raw_samples();
+static void process_match_result(float match_coef);
     
 static float32_t cmplx_in_out[fft_size*2];
 static float32_t magnitude_out[fft_size];
-static uint32_t base_frequencies_cnt;
+static float sampling_freq_hz;
 
 static float magnitude_stats[half_fft_size];
-static float32_t magnitude_means[half_fft_size];
+
+static uint32_t base_frequencies_cnt = 8;
+static float32_t magnitude_means[half_fft_size] = {
+    [12] = 11000, 
+    [13] = 15000,
+    [14] = 18000, 
+    [15] = 17000, 
+    [16] = 18000, 
+    [17] = 14000, 
+    [18] = 13000, 
+    [19] = 13000
+};
+/*
+[bin 12: mean 16017.89] 
+[bin 13: mean 22214.61] 
+[bin 14: mean 24301.22] 
+[bin 15: mean 20545.66] 
+[bin 16: mean 17442.94]
+*/
 
 static mdev_t *adc_dev;
 
@@ -76,7 +98,10 @@ void adc_thread_routine(os_thread_arg_t data)
            calculating the magnitude at each bin */
         arm_cmplx_mag_f32(cmplx_in_out, magnitude_out, fft_size);
 
-        correlate_and_match();
+        float match_coef;
+        correlate_and_match(&match_coef);
+
+        process_match_result(match_coef);
 
         check_and_build_model();
     }
@@ -97,6 +122,9 @@ void read_raw_samples()
              accum_us = 0, 
              accum_cnt = 0;
 
+    //os_disable_all_interrupts();
+    //unsigned long st = os_enter_critical_section();
+
     for (int i = 0; i < fft_size*2; i+=2) {
 
         us = os_get_usec_counter();
@@ -111,23 +139,27 @@ void read_raw_samples()
             accum_us += us;
             accum_cnt++;
         }
+        //dbg("-------------%d", us);
     }
+
+    //os_exit_critical_section(st);
+    //os_enable_all_interrupts();
 
     /* calculate mean time used to sample */
     accum_us /= accum_cnt;
-    float sampling_freq_hz = 1000000/accum_us;
+    sampling_freq_hz = 1000000/accum_us;
 }
 
 
-void correlate_and_match() 
+void correlate_and_match(float* match_coef) 
 {
-    float match_coef = 0;
-
     /* 
      * the very first bin contains signal power
      * filter it out
      */
     magnitude_out[0] = 0;
+
+    *match_coef = 0;
 
     /* first half of magnitudes is useable, half_fft_size */
 
@@ -137,9 +169,16 @@ void correlate_and_match()
         if (magnitude_means[i] > 0) {
             float tmp = magnitude_out[i] / magnitude_means[i];
             correlation = tmp > 1 ? 1.0/tmp : tmp;
-            wmprintf("%7.2f ", correlation);
+#if 0
+            if (correlation > MATCH_THRESHOLD)
+                wmprintf("[%d %6.2f %6.2f %2.2f] ", 
+                        i,
+                        magnitude_out[i],
+                        magnitude_means[i],
+                        correlation);
+#endif
         }
-        match_coef += correlation;
+        *match_coef += correlation;
 
         /* collect statistics */
         magnitude_stats[i] += magnitude_out[i];
@@ -150,13 +189,13 @@ void correlate_and_match()
                 (max_bin_index * sampling_freq_hz / 2.0) / (half_fft_size));
 #endif
     }
-
-    wmprintf(" match = %2.2f\n\r", match_coef/base_frequencies_cnt);
-
-    if (match_coef/base_frequencies_cnt > MATCH_THRESHOLD)
-        led_fast_blink(board_led_1());
-    else
-        led_off(board_led_1());
+    *match_coef /= base_frequencies_cnt;
+    if (*match_coef > MATCH_THRESHOLD)
+        dbg("sampling freq = %5.2f  match = %2.2f", sampling_freq_hz, *match_coef);
+#if 0
+    else 
+        wmprintf("\n\r");
+#endif
 }
 
 
@@ -180,7 +219,7 @@ void check_and_build_model()
         if (button_was_pressed) {
             button_was_pressed = false;
 
-            wmprintf("------------------------------------------- %d\n\r", magnitude_stat_cnt);
+            wmprintf("------MODEL------- stat cnt = %d\n\r", magnitude_stat_cnt);
 
             for (int i = 0; i < half_fft_size; i++) {
                 magnitude_means[i] = (magnitude_stats[i] * 1.0) / magnitude_stat_cnt;
@@ -197,7 +236,58 @@ void check_and_build_model()
                     wmprintf("[bin %d: mean %.2f] ", i, magnitude_means[i]);
                 }
             }
-            wmprintf("\n\r------------------------------------------- base frequencies = %d\n\r", base_frequencies_cnt);
+            wmprintf("\n\r-------------- base frequencies num = %d\n\r", base_frequencies_cnt);
         }
     }
 }
+
+extern void enqueue_in_use_property_update(bool);
+extern void enqueue_last_use_property_update(int);
+
+static bool signal_detected;
+unsigned first_time_detected;
+unsigned last_time_detected;
+static bool in_use;
+
+void process_match_result(float match_coef)
+{
+    if (match_coef > MATCH_THRESHOLD) {
+        if (!signal_detected) {
+            first_time_detected = os_ticks_get();
+            signal_detected = true;
+        }
+
+        last_time_detected = os_ticks_get();
+
+        unsigned diff = last_time_detected - first_time_detected;
+        dbg(":: matched ago: %u ms", os_ticks_to_msec(diff));
+
+        if (os_ticks_to_msec(diff) > DETECTION_MIN_TIME && !in_use) {
+            in_use = true;
+            led_on(board_led_1());
+            enqueue_in_use_property_update(true);
+        }
+
+    } else {
+
+        unsigned since_first_detected = os_ticks_get() - first_time_detected;
+        unsigned since_last_detected = os_ticks_get() - last_time_detected; 
+
+        if (os_ticks_to_msec(since_last_detected) > SPURIOUS_DETECTION_RELEASE_TIME && !in_use) {
+            signal_detected = false;
+        }
+
+        if (os_ticks_to_msec(since_last_detected) > DETECTION_RELEASE_TIME && in_use) {
+
+            led_off(board_led_1());
+            signal_detected = false;
+
+            in_use = false;
+            enqueue_in_use_property_update(false);
+
+            unsigned long detected_time = os_ticks_to_msec(since_first_detected - since_last_detected);
+            enqueue_last_use_property_update(ceil((detected_time*1.0)/1000)); //in seconds
+        }
+    }
+}
+

@@ -9,8 +9,8 @@
 #include <evrythng/evrythng.h>
 
 evrythng_handle_t evt_handle;
-static char api_key[128];
-static char thng_id[64];
+char api_key[128];
+char thng_id[64];
 
 void enqueue_in_use_property_update(bool);
 void enqueue_last_use_property_update(int);
@@ -50,15 +50,14 @@ static void on_connection_restored()
     dbg("evt connection restored");
 }
 
-
-int evt_connect()
+int evt_init()
 {
     psm_handle_t handle;
     int rc;
 
     if ((rc = psm_open(&handle, "evrythng")) != 0) {
         dbg("psm_open failed with: %d (Is the module name registered?)", rc);
-        goto exit;
+        return rc;
     }
 
     if ((rc = psm_get(&handle, "api_key", api_key, sizeof api_key)) == 0) {
@@ -74,7 +73,15 @@ int evt_connect()
         dbg("thng_id doesn't exist");
         goto exit;
     }
+
+exit:
     psm_close(&handle);
+    return rc;
+}
+
+int evt_connect()
+{
+    int rc;
 
     EvrythngInitHandle(&evt_handle);
     EvrythngSetUrl(evt_handle, "ssl://mqtt.evrythng.com:443");
@@ -89,24 +96,20 @@ int evt_connect()
         os_thread_sleep(os_msec_to_ticks(5000));
     }
     dbg("EVT Connected\n\r");
-
     enqueue_in_use_property_update(false);
-
     return 0;
-
-exit:
-    dbg("EVT Connection failed\n\r");
-    return rc;
 }
 
+extern int evt_put(const char*);
 
 static int update_in_use_property(void* p_in_use)
 {
     bool in_use = (bool)p_in_use;
     char json_str[256];
-    char value_json_fmt[] = "[{\"value\": %s}]";
+    char value_json_fmt[] = "[{\"key\": \"in_use\", \"value\": %s}]";
     sprintf(json_str, value_json_fmt, in_use ? "true" : "false");
-    return EvrythngPubThngProperty(evt_handle, thng_id, "in_use", json_str);
+    //return EvrythngPubThngProperty(evt_handle, thng_id, "in_use", json_str);
+    return evt_put(json_str);
 }
 
 
@@ -114,9 +117,10 @@ static int update_last_use_property(void* p_last_use)
 {
     int last_use = (int)p_last_use;
     char json_str[256];
-    char value_json_fmt[] = "[{\"value\": %d}]";
+    char value_json_fmt[] = "[{\"key\": \"last_use\", \"value\": %d}]";
     sprintf(json_str, value_json_fmt, last_use);
-    return EvrythngPubThngProperty(evt_handle, thng_id, "last_use", json_str);
+    //return EvrythngPubThngProperty(evt_handle, thng_id, "last_use", json_str);
+    return evt_put(json_str);
 }
 
 void enqueue_in_use_property_update(bool in_use)
