@@ -19,7 +19,7 @@ endif
 .PHONY: all demo demo_clean tests tests_clean clean 
 
 demo: wmsdk 
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/demo
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/demo XIP=1
 
 demo_clean:
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/demo clean
