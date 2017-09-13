@@ -9,6 +9,8 @@
 #include <stdarg.h>
 
 #include <wm_net.h>
+#include <mbedtls/error.h>
+#include <mbedtls/net_sockets.h>
 
 
 void platform_timer_init(Timer* t)
@@ -134,6 +136,10 @@ static int tls_connect(Network* n, const char* hostname)
         platform_printf("%s: failed to create tls config\n", __func__);
         return rc;
     }
+
+    mbedtls_ssl_conf_min_version(n->tls_config, 
+            MBEDTLS_SSL_MAJOR_VERSION_3,
+            MBEDTLS_SSL_MINOR_VERSION_3);
 
 	mbedtls_ssl_conf_cert_profile(n->tls_config,
 			&wm_mbedtls_x509_crt_profile_evrythng);
@@ -291,12 +297,26 @@ int platform_network_read(Network* n, unsigned char* buffer, int len, int timeou
             bytes = 0;
             break;
         }
-        else if (rc == -1)
+        else if (rc < 0)
         {   
-            if (errno != ENOTCONN && errno != ECONNRESET)
+            if (n->tls_enabled)
             {
-                bytes = -1;
-                break;
+                if (rc == MBEDTLS_ERR_SSL_TIMEOUT ||
+                        rc == MBEDTLS_ERR_NET_RECV_FAILED)
+                {
+                    bytes = -1;
+                    break;
+                }
+                else
+                    platform_printf("mbedtls_ssl_read ret: -0x%02X\n", -rc);
+            }
+            else
+            {
+                if (errno != ENOTCONN && errno != ECONNRESET)
+                {
+                    bytes = -1;
+                    break;
+                }
             }
         }
         else
