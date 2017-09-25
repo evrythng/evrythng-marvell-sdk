@@ -87,8 +87,8 @@ static void set_device_time();
 /*-----------------------Global declarations----------------------*/
 
 appln_config_t appln_cfg = {
-	.ssid = "Audio_Sensing_Prototype",
-	.passphrase = "marvellwm",
+	.ssid = "evrythng-lt-test",
+	.passphrase = "evrythng",
 	.hostname = "provdemo",
 };
 
@@ -99,9 +99,9 @@ static uint8_t first_time = 1;
 struct fs *fs;
 
 /* Thread handle */
-static os_thread_t adc_thread;
+static os_thread_t lt_thread;
 /* Buffer to be used as stack */
-static os_thread_stack_define(adc_thread_stack, 12 * 1024);
+static os_thread_stack_define(lt_thread_stack, 12 * 1024);
 
 /*-----------------------Global declarations----------------------*/
 static int provisioned;
@@ -113,7 +113,7 @@ static int provisioned;
 int appln_config_init()
 {
 	/* Initialize service name for mdns */
-	snprintf(appln_cfg.servname, MAX_SRVNAME_LEN, "audiosensor");
+	snprintf(appln_cfg.servname, MAX_SRVNAME_LEN, "lt-test");
 	/* Initialize reset to provisioning push button settings */
 	appln_cfg.reset_prov_pb_gpio = board_button_2();
 	return 0;
@@ -361,10 +361,7 @@ void event_normal_connecting(void *data)
 	led_fast_blink(board_led_2());
 }
 
-extern void adc_thread_routine(os_thread_arg_t);
-extern void enqueue_in_use_property_update(bool);
-extern int evt_connect();
-extern int evt_init();
+extern void lt_thread_routine(os_thread_arg_t);
 
 /* Event: AF_EVT_NORMAL_CONNECTED
  *
@@ -389,34 +386,20 @@ void event_normal_connected(void *data)
 
     dbg("Ready for operation");
 
-	if (!adc_thread) {
+	if (!lt_thread) {
 
         set_device_time();
 
-        if (evt_init() != 0) {
-            dbg("failed to read evt credentials");
-            return;
-        }
-
-#if 0
-        if (evt_connect() != 0) {
-            dbg("failed to establish connection to evt cloud");
-            return;
-        }
-#else
-        enqueue_in_use_property_update(false);
-#endif
-
 		/* create main thread */
-		int ret = os_thread_create(&adc_thread,
+		int ret = os_thread_create(&lt_thread,
 			/* thread name */
-			"adc_thread",
+			"lt_thread",
 			/* entry function */
-			adc_thread_routine,
+			lt_thread_routine,
 			/* argument */
 			0,
 			/* stack */
-			&adc_thread_stack,
+			&lt_thread_stack,
 			/* priority */
 			OS_PRIO_3);
 		if (ret != WM_SUCCESS) {

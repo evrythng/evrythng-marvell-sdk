@@ -4,7 +4,7 @@ PROJECT_ROOT=$(shell pwd)
 
 export PROJECT_ROOT
 
-all: demo
+all: lt_test
 
 include $(PROJECT_ROOT)/config.mk
 include common.mk
@@ -16,17 +16,17 @@ BOARD_BIN_DIR=$(WMSDK_BUNDLE_DIR)/bin/$(BOARD)_defconfig/$(BOARD)
 endif
 
 
-.PHONY: all audio_prototype demo demo_clean tests tests_clean clean 
+.PHONY: all lt_test demo demo_clean tests tests_clean clean 
 
-audio_prototype: wmsdk 
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype XIP=1
+lt_test: wmsdk 
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/lt_test XIP=1
 
-audio_prototype_clean:
-	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/audio_prototype clean
+lt_test_clean:
+	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/lt_test clean
 
-audio_prototype_flashprog: audio_prototype
+lt_test_flashprog: lt_test
 	cd $(WMSDK_PATH)/tools/OpenOCD; \
-	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/audio_prototype.bin
+	sudo ./flashprog.py --$(BOARD_FW_PARTITION) $(BOARD_BIN_DIR)/lt_test.bin
 
 demo: wmsdk 
 	$(AT)$(MAKE) -C $(WMSDK_BUNDLE_DIR) APP=$(PROJECT_ROOT)/apps/demo
