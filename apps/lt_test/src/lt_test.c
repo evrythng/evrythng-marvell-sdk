@@ -6,14 +6,88 @@
 #include <psm.h>
 #include <psm-utils.h>
 #include <evrythng/evrythng.h>
+#include "evrythng/platform.h"
 #include <work-queue.h>
 #include <system-work-queue.h>
 
 
-evrythng_handle_t evt_handle;
-char api_key[128];
-char thng_id[64];
-char product_id[64];
+static evrythng_handle_t evt_handle;
+static char api_key[128];
+static char thng_id[64];
+static char product_id[64];
+static char json_str[512];
+static uint64_t con_lost_ticks;
+
+static int latency_check(void*);
+static wq_job_t latency_check_job = {
+    .job_func = latency_check,
+    .periodic_ms = 6*60*1000,
+    .initial_delay_ms = 0,
+    .param = 0
+};
+static job_handle_t latency_check_job_handle;
+
+static int connection_update(void*);
+static wq_job_t connection_update_job = {
+    .job_func = connection_update,
+    .periodic_ms = 0,
+    .initial_delay_ms = 0,
+    .param = 0
+};
+
+uint64_t offline_ticks;
+
+/* statistics variables */
+
+static uint32_t reconnection_count;
+static uint32_t reconnection_time;
+static int32_t pub_thng_prop_time;
+static int32_t pub_thng_action_time;
+static int32_t pub_product_prop_time;
+static int32_t pub_product_action_time;
+static char    uptime[64]; //string in a form of: "NNh XXm YYms"
+static char    online[64]; //string in a form of: "NNh XXm YYms"
+
+/************************/
+static char* random_prop = "random";
+
+static char* random_prop_format = "[{\"key\": \"random\", \"value\": %u}]";
+
+static char* action_name = "_action_1";
+
+static char* action_format = "{\"type\": \"_action_1\"}";
+
+static char* uptime_format = "%uh %um %us";
+
+static char* format1 = "[{\"key\": \"reconnection_time\", \"value\": %u},"
+                         "{\"key\": \"reconnection_count\", \"value\": %u}]";
+
+static char* format2 = "[{\"key\": \"uptime\", \"value\": \"%s\"},"
+                         "{\"key\": \"online\", \"value\": \"%s\"},"
+                         "{\"key\": \"pub_thng_prop_time\", \"value\": %d},"
+                         "{\"key\": \"pub_thng_action_time\", \"value\": %d},"
+                         "{\"key\": \"pub_product_prop_time\", \"value\": %d},"
+                         "{\"key\": \"pub_product_action_time\", \"value\": %d},"
+                         "{\"key\": \"free_ram\", \"value\": %zu}]";
+
+
+static void refresh_uptime() 
+{
+    uint64_t t = os_total_ticks_get() * (portTICK_RATE_MS);
+    uint32_t h = t / (1000*60*60);
+    uint32_t m = (t - h*1000*60*60) / (1000*60);
+    uint32_t s = (t - h*1000*60*60 - m*1000*60) / (1000);
+    sprintf(uptime, uptime_format, h, m, s);
+}
+
+static void refresh_online() 
+{
+    uint64_t t = (os_total_ticks_get() - offline_ticks) * (portTICK_RATE_MS);
+    uint32_t h = t / (1000*60*60);
+    uint32_t m = (t - h*1000*60*60) / (1000*60);
+    uint32_t s = (t - h*1000*60*60 - m*1000*60) / (1000);
+    sprintf(online, uptime_format, h, m, s);
+}
 
 
 int evt_init()
@@ -81,58 +155,112 @@ static void log_callback(evrythng_log_level_t level, const char* fmt, va_list vl
 static void on_connection_lost()
 {
     dbg("evt connection lost");
+    con_lost_ticks = os_total_ticks_get();
+    int r = work_dequeue(sys_work_queue_get_handle(), 
+            &latency_check_job_handle);
+    if (r < 0)
+        dbg("work_dequeue on connection lost failed: -%d", -r);
+
 }
+
+
+#define elapsed_ms(since) (((os_total_ticks_get()) - since) * (portTICK_RATE_MS))
 
 
 static void on_connection_restored()
 {
     dbg("evt connection restored");
+
+    reconnection_time = elapsed_ms(con_lost_ticks);
+
+    offline_ticks += reconnection_time;
+
+    int r = work_enqueue(sys_work_queue_get_handle(), 
+            &connection_update_job, 0);
+    if (r < 0)
+        dbg("work_enqueue connection_update_job on restored failed: -%d", -r);
+
+    r = work_enqueue(sys_work_queue_get_handle(), 
+            &latency_check_job, 
+            &latency_check_job_handle);
+    if (r < 0)
+        dbg("work_enqueue latency_check_job on restored failed: -%d", -r);
 }
 
-#if 0
-static int update_in_use_property(void* p_in_use)
+
+int latency_check(void* unused)
 {
-    bool in_use = (bool)p_in_use;
-    char json_str[256];
-    char value_json_fmt[] = "[{\"key\": \"in_use\", \"value\": %s}]";
-    sprintf(json_str, value_json_fmt, in_use ? "true" : "false");
-    //return EvrythngPubThngProperty(evt_handle, thng_id, "in_use", json_str);
-    return evt_put(json_str);
+    uint64_t t = os_total_ticks_get();
+
+    sprintf(json_str, random_prop_format, platform_rand());
+    int r = EvrythngPubThngProperty(evt_handle, thng_id, random_prop, json_str);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish thng property in %s: -%d", __func__, -r);
+        pub_thng_prop_time = r;
+    } else {
+        pub_thng_prop_time = elapsed_ms(t);
+    }
+
+
+    t = os_total_ticks_get();
+    r = EvrythngPubThngAction(evt_handle, thng_id, action_name, action_format);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish thng action in %s: -%d", __func__, -r);
+        pub_thng_action_time = r;
+    } else {
+        pub_thng_action_time = elapsed_ms(t);
+    }
+
+
+    t = os_total_ticks_get();
+    sprintf(json_str, random_prop_format, platform_rand());
+    r = EvrythngPubProductProperty(evt_handle, product_id, random_prop, json_str);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish product property in %s: -%d", __func__, -r);
+        pub_product_prop_time = r;
+    } else {
+        pub_product_prop_time = elapsed_ms(t);
+    }
+
+    t = os_total_ticks_get();
+    r = EvrythngPubProductAction(evt_handle, product_id, action_name, action_format);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish product action in %s: -%d", __func__, -r);
+        pub_product_action_time = r;
+    } else {
+        pub_product_action_time = elapsed_ms(t);
+    }
+    
+    refresh_uptime();
+    refresh_online();
+
+    const heapAllocatorInfo_t* s = getheapAllocInfo();
+
+    sprintf(json_str, format2, uptime, online,
+            pub_thng_prop_time,
+            pub_thng_action_time,
+            pub_product_prop_time,
+            pub_product_action_time,
+            s->freeSize);
+            
+    r = EvrythngPubThngProperties(evt_handle, thng_id, json_str);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish stat properties in %s: -%d", __func__, -r);
+    }
+
+    return r;
 }
 
 
-static int update_last_use_property(void* p_last_use)
+int connection_update(void* unused)
 {
-    int last_use = (int)p_last_use;
-    char json_str[256];
-    char value_json_fmt[] = "[{\"key\": \"last_use\", \"value\": %d}]";
-    sprintf(json_str, value_json_fmt, last_use);
-    //return EvrythngPubThngProperty(evt_handle, thng_id, "last_use", json_str);
-    return evt_put(json_str);
+    sprintf(json_str, format1, reconnection_time, reconnection_count++);
+    int r = EvrythngPubThngProperties(evt_handle, thng_id, json_str);
+    if (r != EVRYTHNG_SUCCESS) {
+        dbg("failed to pubish properties in %s: -%d", __func__, -r);
+    }
+    return r;
 }
-
-void enqueue_in_use_property_update(bool in_use)
-{
-    wq_job_t job = {
-        .job_func = update_in_use_property,
-        .periodic_ms = 0,
-        .initial_delay_ms = 0,
-        .param = (void*)in_use,
-    };
-    work_enqueue(sys_work_queue_get_handle(), &job, NULL);
-}
-
-void enqueue_last_use_property_update(int last_use)
-{
-    wq_job_t job = {
-        .job_func = update_last_use_property,
-        .periodic_ms = 0,
-        .initial_delay_ms = 0,
-        .param = (void*)last_use,
-    };
-    work_enqueue(sys_work_queue_get_handle(), &job, NULL);
-}
-#endif
 
 
 void lt_thread_routine(os_thread_arg_t data)
@@ -151,19 +279,31 @@ void lt_thread_routine(os_thread_arg_t data)
     EvrythngSetLogCallback(evt_handle, log_callback);
     EvrythngSetConnectionCallbacks(evt_handle, on_connection_lost, on_connection_restored);
 
-    uint64_t t1 = os_total_ticks_get();
+    uint64_t t = os_total_ticks_get();
 
-    while ((rc = EvrythngConnect(evt_handle)) != EVRYTHNG_SUCCESS) 
-    {
+    while ((rc = EvrythngConnect(evt_handle)) != EVRYTHNG_SUCCESS) {
         dbg("connection failed (%d), retry", rc);
         os_thread_sleep(os_msec_to_ticks(5000));
     }
     dbg("EVT Connected\n\r");
 
-    uint64_t t2 = os_total_ticks_get();
+    offline_ticks = os_total_ticks_get();
 
-    dbg("time to connect: %u", (t2-t1) * portTICK_RATE_MS);
+    reconnection_time = elapsed_ms(t);
 
+    int r = work_enqueue(sys_work_queue_get_handle(), 
+            &connection_update_job, 0);
+    if (r < 0)
+        dbg("work_enqueue connection_update_job on startup failed: -%d", -r);
+
+    r = work_enqueue(sys_work_queue_get_handle(), 
+            &latency_check_job, 
+            &latency_check_job_handle);
+    if (r < 0)
+        dbg("work_enqueue latency_check_job on startup failed: -%d", -r);
+
+    while (1)
+        os_thread_sleep(os_msec_to_ticks(1000));
 
 exit_thread:
 	os_thread_self_complete(NULL);
