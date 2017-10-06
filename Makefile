@@ -4,7 +4,7 @@ PROJECT_ROOT=$(shell pwd)
 
 export PROJECT_ROOT
 
-all: demo
+all: audio_prototype
 
 include $(PROJECT_ROOT)/config.mk
 include common.mk

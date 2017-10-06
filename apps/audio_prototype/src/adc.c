@@ -14,14 +14,13 @@
 extern void enqueue_in_use_property_update(bool);
 extern void enqueue_last_use_property_update(int);
 
-
 #define fft_size 256
 #define half_fft_size (fft_size/2)
-#define MATCH_THRESHOLD .45
+#define MATCH_THRESHOLD .5 //.45
 #define BASE_FREQUENCY_THRESHOLD .6
 #define DETECTION_MIN_TIME 1500
 #define DETECTION_RELEASE_TIME 3000
-#define SPURIOUS_DETECTION_RELEASE_TIME 300
+#define SPURIOUS_DETECTION_RELEASE_TIME 200 //300
 
 static void correlate_and_match(float* match_coef);
 static void check_and_build_model();
@@ -65,7 +64,7 @@ void adc_thread_start()
 	if (adc_running)
         return;
 
-    adc_running = 0;
+    adc_running = 1;
 
     enqueue_in_use_property_update(false);
 
