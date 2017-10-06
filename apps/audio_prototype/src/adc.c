@@ -11,6 +11,9 @@
 #include "arm_const_structs.h"
 #include <led_indicator.h>
 
+extern void enqueue_in_use_property_update(bool);
+extern void enqueue_last_use_property_update(int);
+
 
 #define fft_size 256
 #define half_fft_size (fft_size/2)
@@ -30,6 +33,10 @@ static float32_t magnitude_out[fft_size];
 static float sampling_freq_hz;
 
 static float magnitude_stats[half_fft_size];
+
+static os_thread_t adc_thread;
+static os_thread_stack_define(adc_thread_stack, 12 * 1024);
+static int adc_running;
 
 static uint32_t base_frequencies_cnt = 8;
 static float32_t magnitude_means[half_fft_size] = {
@@ -51,6 +58,40 @@ static float32_t magnitude_means[half_fft_size] = {
 */
 
 static mdev_t *adc_dev;
+void adc_thread_routine(os_thread_arg_t);
+
+void adc_thread_start()
+{
+	if (adc_running)
+        return;
+
+    adc_running = 0;
+
+    enqueue_in_use_property_update(false);
+
+    /* create main thread */
+    int ret = os_thread_create(&adc_thread,
+            /* thread name */
+            "adc_thread",
+            /* entry function */
+            adc_thread_routine,
+            /* argument */
+            0,
+            /* stack */
+            &adc_thread_stack,
+            /* priority */
+            OS_PRIO_3);
+
+    if (ret != WM_SUCCESS) {
+        dbg("Failed to start adc_thread: %d", ret);
+        adc_running = 0;
+    }
+}
+
+void adc_thread_stop()
+{
+    adc_running = 0;
+}
 
 void adc_thread_routine(os_thread_arg_t data)
 {
@@ -84,7 +125,7 @@ void adc_thread_routine(os_thread_arg_t data)
 
 	adc_dev = adc_drv_open(ADC0_ID, ADC_CH0);
 
-    while (true) {
+    while (adc_running) {
 
         read_raw_samples();
 
@@ -106,13 +147,12 @@ void adc_thread_routine(os_thread_arg_t data)
         check_and_build_model();
     }
 
-    /* should never get here */
-
 	adc_drv_close(adc_dev);
 	adc_drv_deinit(ADC0_ID);
 
 exit_thread:
-	os_thread_self_complete(NULL);
+    dbg("exiting %s thread routine...", __func__);  
+	os_thread_delete(&adc_thread);
 }
 
 
@@ -240,9 +280,6 @@ void check_and_build_model()
         }
     }
 }
-
-extern void enqueue_in_use_property_update(bool);
-extern void enqueue_last_use_property_update(int);
 
 static bool signal_detected;
 unsigned first_time_detected;

@@ -87,9 +87,9 @@ static void set_device_time();
 /*-----------------------Global declarations----------------------*/
 
 appln_config_t appln_cfg = {
-	.ssid = "Audio_Sensing_Prototype",
+	.ssid = "Electrolux_Prototype",
 	.passphrase = "marvellwm",
-	.hostname = "provdemo",
+	.hostname = "elxdemo",
 };
 
 int ftfs_api_version = 100;
@@ -98,12 +98,14 @@ char *ftfs_part_name = "ftfs";
 static uint8_t first_time = 1;
 struct fs *fs;
 
-/* Thread handle */
-static os_thread_t adc_thread;
-/* Buffer to be used as stack */
-static os_thread_stack_define(adc_thread_stack, 12 * 1024);
-
 /*-----------------------Global declarations----------------------*/
+extern void adc_thread_routine(os_thread_arg_t);
+extern void adc_thread_stop();
+extern void adc_thread_start();
+extern void enqueue_in_use_property_update(bool);
+extern int evt_connect();
+extern int evt_init();
+
 static int provisioned;
 
 /* This function must initialize the variables required (network name,
@@ -321,6 +323,8 @@ void event_uap_started(void *data)
 
 void event_normal_reset_prov(void *data)
 {
+    adc_thread_stop();
+
 	led_on(board_led_2());
 	first_time = 1;
 
@@ -361,10 +365,6 @@ void event_normal_connecting(void *data)
 	led_fast_blink(board_led_2());
 }
 
-extern void adc_thread_routine(os_thread_arg_t);
-extern void enqueue_in_use_property_update(bool);
-extern int evt_connect();
-extern int evt_init();
 
 /* Event: AF_EVT_NORMAL_CONNECTED
  *
@@ -389,41 +389,14 @@ void event_normal_connected(void *data)
 
     dbg("Ready for operation");
 
-	if (!adc_thread) {
+    set_device_time();
 
-        set_device_time();
+    if (evt_init() != 0) {
+        dbg("failed to read evt credentials");
+        return;
+    }
 
-        if (evt_init() != 0) {
-            dbg("failed to read evt credentials");
-            return;
-        }
-
-#if 0
-        if (evt_connect() != 0) {
-            dbg("failed to establish connection to evt cloud");
-            return;
-        }
-#else
-        enqueue_in_use_property_update(false);
-#endif
-
-		/* create main thread */
-		int ret = os_thread_create(&adc_thread,
-			/* thread name */
-			"adc_thread",
-			/* entry function */
-			adc_thread_routine,
-			/* argument */
-			0,
-			/* stack */
-			&adc_thread_stack,
-			/* priority */
-			OS_PRIO_3);
-		if (ret != WM_SUCCESS) {
-			dbg("Failed to start adc_thread: %d", ret);
-			return;
-		}
-	}
+    adc_thread_start();
 }
 
 /* Event handler for AF_EVT_NORMAL_DISCONNECTED - Station interface
