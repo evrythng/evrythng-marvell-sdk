@@ -28,7 +28,8 @@ static void check_and_build_model();
 static void read_raw_samples();
 static void apply_window();
 //static void print_max_mags();
-static void process_match_result(float match_coef);
+static void process_match_result1(float match_coef);
+static void process_match_result2(float match_coef);
     
 static float32_t cmplx_in_out[fft_size*2];
 static float32_t magnitude_out[fft_size];
@@ -139,7 +140,7 @@ void adc_thread_routine(os_thread_arg_t data)
         float match_coef;
         correlate_and_match(&match_coef);
 
-        process_match_result(match_coef);
+        process_match_result2(match_coef);
 
         check_and_build_model();
     }
@@ -305,9 +306,8 @@ static bool signal_detected;
 unsigned first_time_detected;
 unsigned last_time_detected;
 static bool in_use;
-static bool waiting_spike;
 
-void process_match_result(float match_coef)
+void process_match_result1(float match_coef)
 {
     if (match_coef > MATCH_THRESHOLD) {
         if (!signal_detected) {
@@ -347,6 +347,81 @@ void process_match_result(float match_coef)
             unsigned long detected_time = os_ticks_to_msec(since_first_detected);
             enqueue_last_use_property_update(ceil((detected_time*1.0)/1000)); //in seconds
         }
+    }
+}
+
+typedef enum state {
+    ST_IDLE = 0,
+    ST_SIGNAL_DETECTED,
+    ST_IN_USE,
+    ST_WAITING_SPIKE,
+    ST_SPIKE_RELEASE,
+} state_t;
+
+state_t state;
+
+void process_match_result2(float match_coef)
+{
+    if (match_coef > MATCH_THRESHOLD) {
+        last_time_detected = os_ticks_get();
+    }
+    unsigned diff = last_time_detected - first_time_detected;
+    unsigned since_last_detected = os_ticks_get() - last_time_detected; 
+
+    switch (state) {
+
+        case ST_IDLE:
+            if (match_coef > MATCH_THRESHOLD) {
+                first_time_detected = os_ticks_get();
+                state = ST_SIGNAL_DETECTED;
+            }
+            break;
+
+        case ST_SIGNAL_DETECTED:
+
+            if (match_coef > MATCH_THRESHOLD) {
+                dbg(":: matched ago: %u ms", os_ticks_to_msec(diff));
+
+                if (os_ticks_to_msec(diff) > DETECTION_MIN_TIME) {
+                    state = ST_IN_USE;
+                    led_on(board_led_1());
+                    enqueue_in_use_property_update(true);
+                }
+            } else {
+                if (os_ticks_to_msec(since_last_detected) > SPURIOUS_DETECTION_RELEASE_TIME) {
+                    state = ST_IDLE;
+                }
+            }
+            break;
+
+        case ST_IN_USE:
+
+            if (match_coef > MATCH_THRESHOLD) {
+                dbg(":: matched ago: %u ms", os_ticks_to_msec(diff));
+            } else {
+                unsigned since_first_detected = os_ticks_get() - first_time_detected;
+
+                if (os_ticks_to_msec(since_last_detected) > DETECTION_RELEASE_TIME) {
+
+                    led_off(board_led_1());
+                    state = ST_IDLE;
+
+                    enqueue_in_use_property_update(false);
+
+                    unsigned long detected_time = os_ticks_to_msec(since_first_detected);
+                    enqueue_last_use_property_update(ceil((detected_time*1.0)/1000)); //in seconds
+                }
+            }
+            break;
+
+        case ST_WAITING_SPIKE:
+            break;
+
+        case ST_SPIKE_RELEASE:
+            break;
+
+        default:
+            break;
     }
 }
 
