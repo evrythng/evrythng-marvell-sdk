@@ -14,17 +14,20 @@
 extern void enqueue_in_use_property_update(bool);
 extern void enqueue_last_use_property_update(int);
 
-#define fft_size 256
+#define fft_size 512
 #define half_fft_size (fft_size/2)
-#define MATCH_THRESHOLD .5 //.45
-#define BASE_FREQUENCY_THRESHOLD .6
-#define DETECTION_MIN_TIME 1500
-#define DETECTION_RELEASE_TIME 3000
-#define SPURIOUS_DETECTION_RELEASE_TIME 200 //300
+#define MATCH_THRESHOLD .6
+#define BASE_FREQUENCY_THRESHOLD .7
+#define DETECTION_MIN_TIME 1000
+#define DETECTION_RELEASE_TIME 4000
+#define SPIKE_DETECTION_RELEASE_TIME 2000
+#define SPURIOUS_DETECTION_RELEASE_TIME 400
 
 static void correlate_and_match(float* match_coef);
 static void check_and_build_model();
 static void read_raw_samples();
+static void apply_window();
+//static void print_max_mags();
 static void process_match_result(float match_coef);
     
 static float32_t cmplx_in_out[fft_size*2];
@@ -37,24 +40,17 @@ static os_thread_t adc_thread;
 static os_thread_stack_define(adc_thread_stack, 12 * 1024);
 static int adc_running;
 
-static uint32_t base_frequencies_cnt = 8;
+static uint32_t base_frequencies_cnt = 7; // num of freq - 1
 static float32_t magnitude_means[half_fft_size] = {
-    [12] = 11000, 
-    [13] = 15000,
-    [14] = 18000, 
-    [15] = 17000, 
-    [16] = 18000, 
-    [17] = 14000, 
-    [18] = 13000, 
-    [19] = 13000
+    [34] = 15000,
+    [35] = 15000,
+    [36] = 15000,
+    [37] = 15000,
+    [38] = 15000,
+    [39] = 15000,
+    [40] = 15000,
+    [41] = 15000,
 };
-/*
-[bin 12: mean 16017.89] 
-[bin 13: mean 22214.61] 
-[bin 14: mean 24301.22] 
-[bin 15: mean 20545.66] 
-[bin 16: mean 17442.94]
-*/
 
 static mdev_t *adc_dev;
 void adc_thread_routine(os_thread_arg_t);
@@ -128,8 +124,10 @@ void adc_thread_routine(os_thread_arg_t data)
 
         read_raw_samples();
 
+        //apply_window();
+
         /* Process the data through the CFFT/CIFFT module */
-        arm_cfft_f32(&arm_cfft_sR_f32_len256, 
+        arm_cfft_f32(&arm_cfft_sR_f32_len512, 
                 cmplx_in_out, 
                 0 /* inverse */, 
                 1 /* but inverse ? */);
@@ -161,9 +159,6 @@ void read_raw_samples()
              accum_us = 0, 
              accum_cnt = 0;
 
-    //os_disable_all_interrupts();
-    //unsigned long st = os_enter_critical_section();
-
     for (int i = 0; i < fft_size*2; i+=2) {
 
         us = os_get_usec_counter();
@@ -178,15 +173,25 @@ void read_raw_samples()
             accum_us += us;
             accum_cnt++;
         }
-        //dbg("-------------%d", us);
     }
-
-    //os_exit_critical_section(st);
-    //os_enable_all_interrupts();
 
     /* calculate mean time used to sample */
     accum_us /= accum_cnt;
     sampling_freq_hz = 1000000/accum_us;
+}
+
+
+static double hamming(double n, double frame_size)
+{
+    return 0.54 - 0.46 * cos((2 * M_PI * n) / (frame_size - 1));
+}
+
+
+void apply_window()
+{
+    for (int i = 0; i < fft_size*2; i+=2) {
+        cmplx_in_out[i] *= hamming(i/2, fft_size);
+    }
 }
 
 
@@ -196,19 +201,21 @@ void correlate_and_match(float* match_coef)
      * the very first bin contains signal power
      * filter it out
      */
-    magnitude_out[0] = 0;
+    for (int i = 0; i < 5; i++)
+        magnitude_out[i] = 0;
 
     *match_coef = 0;
 
-    /* first half of magnitudes is useable, half_fft_size */
+    /* first half of magnitudes is usable, half_fft_size */
 
     for (int i = 0; i < half_fft_size; i++) {
 
         float correlation = 0;
         if (magnitude_means[i] > 0) {
             float tmp = magnitude_out[i] / magnitude_means[i];
-            correlation = tmp > 1 ? 1.0/tmp : tmp;
-#if 0
+            //correlation = tmp > 1 ? 1.0/tmp : tmp;
+            correlation = tmp > 1 ? 1 : tmp;
+#if 1
             if (correlation > MATCH_THRESHOLD)
                 wmprintf("[%d %6.2f %6.2f %2.2f] ", 
                         i,
@@ -231,7 +238,7 @@ void correlate_and_match(float* match_coef)
     *match_coef /= base_frequencies_cnt;
     if (*match_coef > MATCH_THRESHOLD)
         dbg("sampling freq = %5.2f  match = %2.2f", sampling_freq_hz, *match_coef);
-#if 0
+#if 1
     else 
         wmprintf("\n\r");
 #endif
@@ -254,6 +261,20 @@ void check_and_build_model()
             magnitude_stat_cnt = 0;
             base_frequencies_cnt = 0;
         }
+
+        //print a couple of max magnitudes
+      
+        float32_t m_mag, m_mag_next; uint32_t m_index;
+        arm_max_f32(magnitude_out, half_fft_size, &m_mag, &m_index);
+
+        for (int i = 0; i < half_fft_size; i++) {
+            arm_max_f32(magnitude_out, half_fft_size, &m_mag_next, &m_index);
+            if (m_mag_next / m_mag > BASE_FREQUENCY_THRESHOLD)
+                wmprintf("[%d] = %6.2f, ", m_index, magnitude_out[m_index]);
+            magnitude_out[m_index] = 0;
+        }
+        wmprintf("\n\r");
+
     } else {
         if (button_was_pressed) {
             button_was_pressed = false;
@@ -272,10 +293,10 @@ void check_and_build_model()
                     magnitude_means[i] = 0;
                 else {
                     base_frequencies_cnt++;
-                    wmprintf("[bin %d: mean %.2f] ", i, magnitude_means[i]);
+                    wmprintf("[%d] = %.2f,\n\r", i, magnitude_means[i]);
                 }
             }
-            wmprintf("\n\r-------------- base frequencies num = %d\n\r", base_frequencies_cnt);
+            wmprintf("-------------- base frequencies num = %d\n\r", base_frequencies_cnt);
         }
     }
 }
@@ -284,6 +305,7 @@ static bool signal_detected;
 unsigned first_time_detected;
 unsigned last_time_detected;
 static bool in_use;
+static bool waiting_spike;
 
 void process_match_result(float match_coef)
 {
@@ -321,7 +343,8 @@ void process_match_result(float match_coef)
             in_use = false;
             enqueue_in_use_property_update(false);
 
-            unsigned long detected_time = os_ticks_to_msec(since_first_detected - since_last_detected);
+            //unsigned long detected_time = os_ticks_to_msec(since_first_detected - since_last_detected);
+            unsigned long detected_time = os_ticks_to_msec(since_first_detected);
             enqueue_last_use_property_update(ceil((detected_time*1.0)/1000)); //in seconds
         }
     }
