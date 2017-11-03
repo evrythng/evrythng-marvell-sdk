@@ -19,9 +19,11 @@ extern void enqueue_last_use_property_update(int);
 #define MATCH_THRESHOLD .6
 #define BASE_FREQUENCY_THRESHOLD .7
 #define DETECTION_MIN_TIME 1000
-#define DETECTION_RELEASE_TIME 4000
-#define SPIKE_DETECTION_RELEASE_TIME 2000
-#define SPURIOUS_DETECTION_RELEASE_TIME 400
+#define DETECTION_RELEASE_TIME 3000
+#define IN_USE_RELEASE_TIME 2000
+#define SPIKE_WAITING_TIMEOUT 7000
+#define SPIKE_RELEASE_TIME 2000
+#define SPURIOUS_DETECTION_RELEASE_TIME 300
 
 static void correlate_and_match(float* match_coef);
 static void check_and_build_model();
@@ -41,16 +43,27 @@ static os_thread_t adc_thread;
 static os_thread_stack_define(adc_thread_stack, 12 * 1024);
 static int adc_running;
 
-static uint32_t base_frequencies_cnt = 7; // num of freq - 1
+static uint32_t base_frequencies_cnt = 3; // num of freq - 1
 static float32_t magnitude_means[half_fft_size] = {
-    [34] = 15000,
-    [35] = 15000,
-    [36] = 15000,
-    [37] = 15000,
-    [38] = 15000,
-    [39] = 15000,
-    [40] = 15000,
-    [41] = 15000,
+    //[34] = 12000,
+    //[35] = 12000,
+    //[36] = 12000,
+    //[37] = 12000,
+/*
+    [227] = 19773.17, 
+    [226] = 19468.58,  
+    [222] = 17825.56, 
+    [223] = 17573.16, 
+    [228] = 16933.95, 
+    [225] = 16765.82, 
+    [224] = 16574.69, 
+    [221] = 14813.62, 
+    [231] = 13906.19, 
+    [230] = 13856.07,
+*/
+    [104] = 14813.62, 
+    [106] = 13906.19, 
+    [108] = 13856.07,
 };
 
 static mdev_t *adc_dev;
@@ -140,7 +153,7 @@ void adc_thread_routine(os_thread_arg_t data)
         float match_coef;
         correlate_and_match(&match_coef);
 
-        process_match_result2(match_coef);
+        process_match_result1(match_coef);
 
         check_and_build_model();
     }
@@ -366,6 +379,7 @@ void process_match_result2(float match_coef)
         last_time_detected = os_ticks_get();
     }
     unsigned diff = last_time_detected - first_time_detected;
+    unsigned since_first_detected = os_ticks_get() - first_time_detected;
     unsigned since_last_detected = os_ticks_get() - last_time_detected; 
 
     switch (state) {
@@ -399,12 +413,33 @@ void process_match_result2(float match_coef)
             if (match_coef > MATCH_THRESHOLD) {
                 dbg(":: matched ago: %u ms", os_ticks_to_msec(diff));
             } else {
-                unsigned since_first_detected = os_ticks_get() - first_time_detected;
+                if (os_ticks_to_msec(since_last_detected) > IN_USE_RELEASE_TIME) {
+                    state = ST_WAITING_SPIKE;
+                }
+            }
+            break;
 
-                if (os_ticks_to_msec(since_last_detected) > DETECTION_RELEASE_TIME) {
+        case ST_WAITING_SPIKE:
+        
+            if (match_coef > MATCH_THRESHOLD) {
+                dbg(":: matched ago: %u ms", os_ticks_to_msec(diff));
+                state = ST_SPIKE_RELEASE;
+            } else {
+                if (os_ticks_to_msec(since_last_detected) > SPIKE_WAITING_TIMEOUT) {
+                    dbg("spile waiting timeout");
+                    state = ST_SPIKE_RELEASE;
+                }
+            }
+            break;
 
-                    led_off(board_led_1());
+        case ST_SPIKE_RELEASE:
+
+            if (match_coef > MATCH_THRESHOLD) {
+                //state = ST_WAITING_SPIKE;
+            } else {
+                if (os_ticks_to_msec(since_last_detected) > SPIKE_RELEASE_TIME) {
                     state = ST_IDLE;
+                    led_off(board_led_1());
 
                     enqueue_in_use_property_update(false);
 
@@ -412,12 +447,6 @@ void process_match_result2(float match_coef)
                     enqueue_last_use_property_update(ceil((detected_time*1.0)/1000)); //in seconds
                 }
             }
-            break;
-
-        case ST_WAITING_SPIKE:
-            break;
-
-        case ST_SPIKE_RELEASE:
             break;
 
         default:
