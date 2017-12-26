@@ -507,7 +507,7 @@ static void modules_init()
 	return;
 }
 
-#define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
+#define EVRYTHNG_GET_TIME_URL "http://time.evrythng.com/time"
 #define MAX_DOWNLOAD_DATA 150
 #define MAX_URL_LEN 128
 

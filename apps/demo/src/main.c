@@ -33,7 +33,7 @@ static os_thread_stack_define(app_stack, 4 * 1024);
 static os_thread_stack_define(button1_stack, 1 * 1024);
 static os_thread_stack_define(button2_stack, 1 * 1024);
 
-#define EVRYTHNG_GET_TIME_URL "http://api.evrythng.com/time"
+#define EVRYTHNG_GET_TIME_URL "http://time.evrythng.com/time"
 #define MAX_DOWNLOAD_DATA 150
 #define MAX_URL_LEN 128
 
